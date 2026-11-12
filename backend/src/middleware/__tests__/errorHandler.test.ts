@@ -1,12 +1,25 @@
 import express from 'express';
 import multer from 'multer';
 import request from 'supertest';
-import { beforeAll, describe, expect, it } from '@jest/globals';
-import { AppError, asyncHandler, errorHandler } from '../errorHandler.js';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
+
+// Development must obey the same public error contract as production.
+jest.unstable_mockModule('../../config/environment.js', () => ({
+  getBackendConfiguration: () => ({ environment: 'development', logLevel: 'error' }),
+}));
+const { AppError, asyncHandler, errorHandler } = await import('../errorHandler.js');
+const { default: logger } = await import('../../utils/logger.js');
 
 let app: express.Express;
 
 describe('global request error handling', () => {
+  beforeEach(() => {
+    jest.spyOn(logger, 'error').mockImplementation(() => logger);
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   beforeAll(async () => {
     const { configureRequestBodyParsers } = await import('../requestLimits.js');
 
@@ -39,6 +52,12 @@ describe('global request error handling', () => {
         throw new AppError('ECONNREFUSED 127.0.0.1:3307', 503);
       }),
     );
+    app.get('/exposed', (_req, _res, next) => {
+      next(Object.assign(new Error('BODY_SENTINEL'), { statusCode: 400, expose: true }));
+    });
+    app.get('/invalid-status', (_req, _res, next) => {
+      next(new AppError('STATUS_SENTINEL', 400.5));
+    });
     app.use(errorHandler);
   });
 
@@ -60,10 +79,11 @@ describe('global request error handling', () => {
 
     expect(response.status).toBe(400);
     expect(response.body.error.statusCode).toBe(400);
+    expect(response.body.error.message).toBe('Invalid request');
   });
 
   it('hides driver text behind a generic 500 with a reference', async () => {
-    const response = await request(app).get('/driver');
+    const response = await request(app).get('/driver?token=QUERY_SENTINEL');
 
     expect(response.status).toBe(500);
     expect(JSON.stringify(response.body)).not.toContain('secret_table');
@@ -72,6 +92,12 @@ describe('global request error handling', () => {
       statusCode: 500,
       reference: expect.stringMatching(/^[0-9a-f-]{36}$/),
     });
+    const logs = JSON.stringify(jest.mocked(logger.error).mock.calls);
+    expect(logs).toContain(response.body.error.reference);
+    expect(logs).toContain('ER_NO_SUCH_TABLE');
+    expect(logs).not.toContain('secret_table');
+    expect(logs).not.toContain('QUERY_SENTINEL');
+    expect(logs).not.toContain('stack');
   });
 
   it('keeps the message of a client AppError', async () => {
@@ -96,5 +122,21 @@ describe('global request error handling', () => {
 
     expect(response.status).toBe(400);
     expect(response.body.error.message).toBe('File too large');
+  });
+
+  it('does not treat exposed parser messages as fixed public text', async () => {
+    const response = await request(app).get('/exposed');
+    expect(response.status).toBe(400);
+    expect(response.body.error.message).toBe('Invalid request');
+    expect(JSON.stringify([response.body, jest.mocked(logger.error).mock.calls])).not.toContain(
+      'BODY_SENTINEL',
+    );
+  });
+
+  it('does not pass a fractional application status to Express', async () => {
+    const response = await request(app).get('/invalid-status');
+    expect(response.status).toBe(500);
+    expect(response.body.error.message).toBe('Internal Server Error');
+    expect(JSON.stringify(response.body)).not.toContain('STATUS_SENTINEL');
   });
 });

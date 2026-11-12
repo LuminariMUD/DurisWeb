@@ -23,10 +23,11 @@ with its own PR. Rebase the stack onto `master` after each merge (see
 
 Decisions taken while implementing (resolving the open questions below):
 
-- **Logging (Q1):** existing log lines are unchanged. `sendRouteError` logs `reference`,
-  `safeFailureCode` and the original message server-side (the issue asks to "log the error
-  server-side"; many converted sites had no log line at all). `errorHandler` still logs the
-  message, now with the reference. Tightening log content is a separate follow-up.
+- **Logging (Q1), corrected during maintenance review:** the route helper and global
+  handler log only fixed context, a reference and an allowlisted failure code. Raw
+  messages, request URLs and stacks are excluded in every environment. Parser errors
+  keep fixed client text; typed application errors require integer 400–499 statuses.
+  Older design notes below are historical where they conflict with this correction.
 - **Status codes (Q2):** user-facing service throws become `AppError` with the semantically
   correct 4xx.
 - **Operator console (Q3):** the live MUD-control console stream stays unchanged.

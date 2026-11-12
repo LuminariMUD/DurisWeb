@@ -59,6 +59,11 @@
 - Never swallow errors silently; a caught error is logged or rethrown
 - Security and integration failures fail closed: on doubt, refuse the operation
 - Never log secrets, IP addresses, or tokens
+- Use `AppError` with an integer 400–499 status for intended client messages and
+  `sendRouteError` for route failures. Unexpected errors return fixed text and a
+  reference in every environment; parser failures keep fixed client text.
+- Error diagnostics use fixed context, the reference and `safeFailureCode`.
+  Do not forward raw messages, request URLs, SQL/bindings or stacks into logs or responses.
 
 ## MUD Integration Hooks
 

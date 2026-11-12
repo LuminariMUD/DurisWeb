@@ -38,11 +38,11 @@ describe('sendRouteError', () => {
         {
           reference: response.body.reference,
           code: 'ER_ACCESS_DENIED_ERROR',
-          message: error.message,
         },
       ],
     ]);
     expect(JSON.stringify(log.mock.calls)).not.toContain('SELECT SENTINEL');
+    expect(JSON.stringify(log.mock.calls)).not.toContain('SENTINEL');
   });
 
   it('passes a client AppError through unchanged', async () => {
@@ -59,4 +59,15 @@ describe('sendRouteError', () => {
     expect(response.status).toBe(500);
     expect(response.body.error).toBe('Failed to load thing');
   });
+
+  it.each([0, 200, 399, 400.5, Number.NaN, Number.POSITIVE_INFINITY])(
+    'does not publish an AppError with invalid client status %s',
+    async (status) => {
+      jest.spyOn(logger, 'error').mockImplementation(() => logger);
+      const response = await request(appRejectingWith(new AppError('SENTINEL', status))).get('/');
+      expect(response.status).toBe(500);
+      expect(response.body.error).toBe('Failed to load thing');
+      expect(JSON.stringify(response.body)).not.toContain('SENTINEL');
+    },
+  );
 });

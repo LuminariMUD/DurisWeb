@@ -45,10 +45,12 @@ stub('../../../services/categoryService.js', {
 
 const { forumRouter } = await import('../routes.js');
 const { generateAccessToken } = await import('../../../middleware/auth.js');
+const { errorHandler } = await import('../../../middleware/errorHandler.js');
 const app = express();
 app.use(cookieParser());
 app.use(express.json());
 app.use('/api/forum', forumRouter);
+app.use(errorHandler);
 
 function routes(router: IRouter): Array<[string, string]> {
   type Layer = {
@@ -72,6 +74,23 @@ function routes(router: IRouter): Array<[string, string]> {
 }
 
 describe('composed forum router', () => {
+  it.each([
+    ['/users/me/avatar', 'avatar'],
+    ['/users/me/banner', 'banner'],
+    ['/images/upload', 'image'],
+  ])('keeps typed file validation on %s through the global handler', async (path, field) => {
+    const cookie = `access_token=${generateAccessToken('Player', 'p@example.invalid', 'sid')}`;
+    const response = await request(app)
+      .post(`/api/forum${path}`)
+      .set('Cookie', cookie)
+      .attach(field, Buffer.from('invalid image'), {
+        filename: 'invalid.txt',
+        contentType: 'text/plain',
+      });
+    expect(response.status).toBe(400);
+    expect(response.body.error.message).toBe('Only JPG, PNG, WebP, and GIF images are allowed');
+  });
+
   it('rejects anonymous callers on every forum write before any handler runs', async () => {
     const writes = routes(forumRouter).filter(([method]) => method !== 'get');
     expect(writes.length).toBeGreaterThan(40);
