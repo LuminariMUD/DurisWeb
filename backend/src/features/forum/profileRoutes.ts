@@ -231,56 +231,6 @@ forumProfileRoutes.get(
   },
 );
 
-// Get account name for a character
-forumProfileRoutes.get(
-  '/characters/:characterName/account',
-  async (req: Request, res: Response) => {
-    try {
-      const { characterName } = req.params;
-      const accountName = await findAccountByCharacter(characterName);
-
-      if (!accountName) {
-        return res.status(404).json({ error: 'Character not found' });
-      }
-
-      return res.json({ accountName });
-    } catch (error) {
-      logger.error('Get character account error:', error);
-      return res.status(500).json({ error: 'Failed to get character account' });
-    }
-  },
-);
-
-// batch lookup for multiple characters
-forumProfileRoutes.post('/characters/batch/accounts', async (req: Request, res: Response) => {
-  try {
-    const { characterNames } = req.body;
-
-    if (!Array.isArray(characterNames) || characterNames.length === 0) {
-      return res.status(400).json({ error: 'characterNames array required' });
-    }
-
-    if (characterNames.length > 50) {
-      return res.status(400).json({ error: 'maximum 50 characters per batch' });
-    }
-
-    const results: Record<string, string> = {};
-    await Promise.all(
-      characterNames.map(async (name: string) => {
-        const accountName = await findAccountByCharacter(name);
-        if (accountName) {
-          results[name] = accountName;
-        }
-      }),
-    );
-
-    return res.json(results);
-  } catch (error) {
-    logger.error('Batch character account lookup error:', error);
-    return res.status(500).json({ error: 'Failed to lookup character accounts' });
-  }
-});
-
 // ============================================================================
 // Avatar Upload Routes
 // ============================================================================

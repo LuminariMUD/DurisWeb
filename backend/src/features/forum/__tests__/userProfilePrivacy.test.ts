@@ -268,18 +268,18 @@ describe.each<{ kind: ProfileKind; path: string }>([
   });
 });
 
-describe('public character-to-account navigation', () => {
-  it('continues to resolve the account link without exposing the private roster', async () => {
+describe('character-to-account lookups (issue #181)', () => {
+  it('no longer resolves a character to its account for anonymous callers', async () => {
     const response = await request(app).get('/api/forum/characters/Hero/account');
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual({ accountName: 'Player' });
+    expect(response.status).toBe(404);
+    expect(JSON.stringify(response.body)).not.toContain('Player');
   });
 
-  it('retains the batch links used by published battle pages', async () => {
+  it('no longer offers the anonymous batch lookup', async () => {
     const response = await request(app)
       .post('/api/forum/characters/batch/accounts')
       .send({ characterNames: ['Hero'] });
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual({ Hero: 'Player' });
+    expect(response.status).toBe(404);
+    expect(JSON.stringify(response.body)).not.toContain('Player');
   });
 });

@@ -15,7 +15,6 @@ import {
   getFragRaces,
   getFragClasses,
   getCharacterFragStats,
-  getAccountFragStats,
 } from '../services/fragService.js';
 import type {
   FragLeaderboardFilters,
@@ -50,7 +49,6 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
       level_max: req.query.level_max
         ? parseIntSafe(req.query.level_max as string, 56, 1, 56)
         : undefined,
-      account_name: sanitizeSearchString(req.query.account_name as string, 50) || undefined,
       char_name: sanitizeSearchString(req.query.char_name as string, 50) || undefined,
       min_frags: req.query.min_frags
         ? parseFloatSafe(req.query.min_frags as string, 0, 0, 10000)
@@ -150,22 +148,6 @@ router.get('/player/:char_name', async (req: Request, res: Response): Promise<vo
   } catch (error) {
     logger.error('Error fetching character frag stats:', error);
     res.status(500).json({ error: 'Failed to fetch character frag stats' });
-  }
-});
-
-/**
- * GET /api/frag/account/:account_name
- * Get all characters and their frag stats for an account
- */
-router.get('/account/:account_name', async (req: Request, res: Response) => {
-  try {
-    const accountName = req.params.account_name;
-    const characters = await getAccountFragStats(accountName);
-
-    res.json(characters);
-  } catch (error) {
-    logger.error('Error fetching account frag stats:', error);
-    res.status(500).json({ error: 'Failed to fetch account frag stats' });
   }
 });
 

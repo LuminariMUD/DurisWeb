@@ -15,7 +15,6 @@ export const fragApi = {
     if (filters.class) params.append('class', filters.class)
     if (filters.level_min !== undefined) params.append('level_min', filters.level_min.toString())
     if (filters.level_max !== undefined) params.append('level_max', filters.level_max.toString())
-    if (filters.account_name) params.append('account_name', filters.account_name)
     if (filters.char_name) params.append('char_name', filters.char_name)
     if (filters.min_frags !== undefined) params.append('min_frags', filters.min_frags.toString())
     if (filters.include_deleted) params.append('include_deleted', 'true')
@@ -59,14 +58,6 @@ export const fragApi = {
    */
   async getCharacterStats(charName: string): Promise<any> {
     const { data } = await api.get(`/api/frag/player/${encodeURIComponent(charName)}`)
-    return data
-  },
-
-  /**
-   * Get all characters and their frag stats for an account
-   */
-  async getAccountStats(accountName: string): Promise<any[]> {
-    const { data } = await api.get(`/api/frag/account/${encodeURIComponent(accountName)}`)
     return data
   },
 }

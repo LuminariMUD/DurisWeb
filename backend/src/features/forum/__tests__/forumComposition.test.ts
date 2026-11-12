@@ -71,15 +71,11 @@ function routes(router: IRouter): Array<[string, string]> {
   return found;
 }
 
-// A read-only lookup that was public before the split.
-const PUBLIC_WRITES = new Set(['post /characters/batch/accounts']);
-
 describe('composed forum router', () => {
   it('rejects anonymous callers on every forum write before any handler runs', async () => {
     const writes = routes(forumRouter).filter(([method]) => method !== 'get');
     expect(writes.length).toBeGreaterThan(40);
     for (const [method, path] of writes) {
-      if (PUBLIC_WRITES.has(`${method} ${path}`)) continue;
       const concrete = path.replace(/:(\w+)/g, '1');
       const response = await request(app)[method as 'post'](`/api/forum${concrete}`);
       expect([method, path, response.status]).toEqual([method, path, 401]);

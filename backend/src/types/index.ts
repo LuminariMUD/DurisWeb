@@ -181,7 +181,6 @@ export interface ClassMatchupData {
 export interface FragLeaderboardEntry {
   rank: number;
   char_name: string;
-  account_name: string;
   total_frags: number; // Already divided by 100
   racewar: number; // 1=Good, 2=Evil
   race: string; // With ANSI codes
@@ -196,7 +195,6 @@ export interface FragLeaderboardFilters {
   class?: string; // Stripped ANSI
   level_min?: number;
   level_max?: number;
-  account_name?: string;
   char_name?: string; // Search query
   min_frags?: number;
   include_deleted?: boolean; // Default: false
@@ -217,7 +215,6 @@ export interface FragLeaderboardResponse {
 export interface TopGainer {
   rank: number;
   char_name: string;
-  account_name: string;
   frags_gained: number; // Over time period
   race: string;
   class: string;

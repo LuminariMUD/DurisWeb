@@ -79,7 +79,7 @@ the default page size is 50, with limit 1–100 and pages capped at 10,000.
 | `/api/admin/users` | `routes/userManagement.ts` | Permissioned account/character management |
 | `/api/admin/git` | `routes/git.ts` | Permissioned MUD repository status/actions |
 | `/api/content` | `routes/content.ts` | Managed MUD help/news/MOTD/information content |
-| `/api/frag` | `routes/frag.ts` | Frag rankings and player/account summaries |
+| `/api/frag` | `routes/frag.ts` | Frag rankings and per-character summaries |
 | `/api/zones` | `routes/zones.ts` | Zone list/status and bounded mutations |
 | `/api/status` | `routes/status.ts` | Public health history/incidents |
 | `/api/server/reboot` | `routes/serverReboot.ts` | Reboot history/statistics |
@@ -131,9 +131,28 @@ access checks and content, but return `characterName: null` to non-owners. Their
 "as character" labels are also owner-only in the profile UI. These two
 viewer-dependent responses use the same private/no-store/Cookie cache policy.
 
-This restriction applies to profile disclosure. Existing public frag
-leaderboards, published PvP battles and character-to-account navigation retain
-their existing behavior; it is not a global character anonymity policy.
+### Characters are public; their owning account is not
+
+No public endpoint links a character to the account that owns it, or lists an
+account's characters ([#181](https://github.com/LuminariMUD/DurisWeb/issues/181)).
+
+- The former `GET /api/forum/characters/:characterName/account`,
+  `POST /api/forum/characters/batch/accounts` and
+  `GET /api/frag/account/:account_name` are removed and return 404.
+- `/api/frag/leaderboard`, `/api/frag/top-gainers` and `/api/frag/player/:char_name`
+  rows carry no `account_name`. The leaderboard ignores an `account_name` query
+  parameter.
+- Public character navigation targets the `/character/:characterName` page. That
+  page reads only `/api/frag/player/:char_name`, `/api/pvp/stats/player/:name` and
+  `/api/forum/characters/:characterName/{pvp,posts}`.
+- Battle detail participants carry `character_exists`, and guild profile members
+  carry `characterExists`. Both are true while a live `account_characters` link
+  exists for that pid, and neither names the account.
+
+Per-character data (name, level, race, class, guild membership, frags and PvP
+history) stays public. A pairing that the player publishes stays public too:
+forum posts and threads show their author's account and chosen character, and
+battle comments show the commenter's account and chosen character.
 
 ## Website data hold records
 
