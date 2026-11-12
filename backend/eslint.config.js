@@ -105,4 +105,26 @@ export default [
     ignores: ['**/__tests__/**'],
     rules: { 'local/no-forbidden-imports': ['error', [ENTRY, APP, RUNTIME]] },
   },
+  {
+    // Responses never carry the text of an unexpected error (#176). Throw AppError for
+    // messages meant for users and send everything else through utils/routeError.ts.
+    files: ['src/routes/**/*.ts', 'src/features/**/*.ts', 'src/realtime/**/*.ts'],
+    ignores: ['**/__tests__/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "CallExpression[callee.property.name=/^(json|send|write|end)$/] CallExpression[callee.name='getErrorMessage']",
+          message: 'Do not send error text to clients; use sendRouteError or AppError.',
+        },
+        {
+          selector:
+            "ConditionalExpression[test.operator='instanceof'][test.right.name='Error'] > MemberExpression.consequent[property.name='message']",
+          message:
+            'Route code must not pick raw error text; use getErrorMessage for logs and sendRouteError for responses.',
+        },
+      ],
+    },
+  },
 ];

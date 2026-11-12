@@ -1,5 +1,5 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger, { getErrorMessage } from '../../utils/logger.js';
+import logger from '../../utils/logger.js';
 import { getObjectData } from '../../services/zoneBuilderParser.js';
 import {
   updateObject,
@@ -10,6 +10,7 @@ import {
 import { validateObject, clearValidationCache } from '../../services/zoneBuilderValidator.js';
 import type { ZoneObject } from '../../types/builder.js';
 import { logBuilderActivity } from './shared.js';
+import { sendRouteError } from '../../utils/routeError.js';
 
 export const builderObjectRoutes: IRouter = Router();
 
@@ -33,7 +34,7 @@ builderObjectRoutes.get('/zones/:id/objects/:vnum', async (req: Request, res: Re
     res.json({ object });
   } catch (error) {
     logger.error('Error getting object:', error);
-    res.status(500).json({ error: 'Failed to get object', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to get object', 'Failed to get object');
   }
 });
 
@@ -90,7 +91,7 @@ builderObjectRoutes.put('/zones/:id/objects/:vnum', async (req: Request, res: Re
     });
   } catch (error) {
     logger.error('Error updating object:', error);
-    res.status(500).json({ error: 'Failed to update object', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to update object', 'Failed to update object');
   }
 });
 
@@ -147,7 +148,7 @@ builderObjectRoutes.post('/zones/:id/objects', async (req: Request, res: Respons
     res.status(201).json({ success: true, object });
   } catch (error) {
     logger.error('Error creating object:', error);
-    res.status(500).json({ error: 'Failed to create object', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to create object', 'Failed to create object');
   }
 });
 
@@ -182,6 +183,6 @@ builderObjectRoutes.delete('/zones/:id/objects/:vnum', async (req: Request, res:
     res.json({ success: true });
   } catch (error) {
     logger.error('Error deleting object:', error);
-    res.status(500).json({ error: 'Failed to delete object', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to delete object', 'Failed to delete object');
   }
 });

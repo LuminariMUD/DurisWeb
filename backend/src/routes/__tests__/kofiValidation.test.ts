@@ -22,6 +22,7 @@ jest.unstable_mockModule('../../services/donationService', () => ({
 }));
 jest.unstable_mockModule('../../utils/logger.js', () => ({
   default: logger,
+  getErrorMessage: (error: unknown) => (error instanceof Error ? error.message : String(error)),
 }));
 
 const verificationToken = crypto.randomBytes(32).toString('hex');

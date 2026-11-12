@@ -1,11 +1,12 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger, { getErrorMessage } from '../../utils/logger.js';
+import logger from '../../utils/logger.js';
 import { pool } from '../../db/connection.js';
 import { writeZoneResets } from '../../services/zoneBuilderWriter.js';
 import { MudFlagParser } from '../../services/mudFlagParser.js';
 import type { RowDataPacket } from 'mysql2';
 import type { ResetCommand } from '../../types/builder.js';
 import { logBuilderActivity } from './shared.js';
+import { sendRouteError } from '../../utils/routeError.js';
 
 export const builderResetFlagRoutes: IRouter = Router();
 
@@ -68,7 +69,7 @@ builderResetFlagRoutes.put('/zones/:id/resets', async (req: Request, res: Respon
     });
   } catch (error) {
     logger.error('Error saving resets:', error);
-    res.status(500).json({ error: 'Failed to save resets', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to save resets', 'Failed to save resets');
   }
 });
 
@@ -162,7 +163,7 @@ builderResetFlagRoutes.get('/flags', async (_req: Request, res: Response) => {
     res.json(response);
   } catch (error) {
     logger.error('Error fetching flags:', error);
-    res.status(500).json({ error: 'Failed to fetch flags', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to fetch flags', 'Failed to fetch flags');
   }
 });
 
@@ -289,7 +290,7 @@ builderResetFlagRoutes.post('/flags/sync', async (req: Request, res: Response) =
     });
   } catch (error) {
     logger.error('Error syncing flags:', error);
-    res.status(500).json({ error: 'Failed to sync flags', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to sync flags', 'Failed to sync flags');
   }
 });
 
@@ -312,6 +313,6 @@ builderResetFlagRoutes.get('/flags/categories', async (_req: Request, res: Respo
     );
   } catch (error) {
     logger.error('Error fetching flag categories:', error);
-    res.status(500).json({ error: 'Failed to fetch categories', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to fetch categories', 'Failed to fetch categories');
   }
 });

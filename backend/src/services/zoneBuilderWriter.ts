@@ -3,6 +3,7 @@
 // Uses zone ID (filename) as unique identifier
 
 import * as fs from 'fs/promises';
+import { AppError } from '../middleware/errorHandler.js';
 import { constants as fsConstants } from 'fs';
 import * as path from 'path';
 import { Room, Mobile, ZoneObject, DIRECTION_INDEX, ResetCommand } from '../types/builder.js';
@@ -377,7 +378,7 @@ export async function createRoom(zoneId: string, room: Room): Promise<Room> {
 
   // Check if vnum already exists
   if (rooms.some((r) => r.vnum === room.vnum)) {
-    throw new Error(`Room with vnum ${room.vnum} already exists`);
+    throw new AppError(`Room with vnum ${room.vnum} already exists`, 409);
   }
 
   rooms.push(room);
@@ -616,7 +617,7 @@ export async function createMobile(zoneId: string, mobile: Mobile): Promise<Mobi
   const mobiles = await parseMobFileLocal(zoneId);
 
   if (mobiles.some((m: Mobile) => m.vnum === mobile.vnum)) {
-    throw new Error(`Mobile with vnum ${mobile.vnum} already exists`);
+    throw new AppError(`Mobile with vnum ${mobile.vnum} already exists`, 409);
   }
 
   mobiles.push(mobile);
@@ -905,7 +906,7 @@ export async function createObject(zoneId: string, object: ZoneObject): Promise<
   const objects = await parseObjFileLocal(zoneId);
 
   if (objects.some((o: ZoneObject) => o.vnum === object.vnum)) {
-    throw new Error(`Object with vnum ${object.vnum} already exists`);
+    throw new AppError(`Object with vnum ${object.vnum} already exists`, 409);
   }
 
   objects.push(object);
@@ -974,7 +975,7 @@ export async function createZone(zoneNumber: number, zoneName: string): Promise<
   // Check if any files with this zone ID already exist
   const zonPath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'zon');
   if (await fileExists(zonPath)) {
-    throw new Error(`Zone file ${zoneId}.zon already exists`);
+    throw new AppError(`Zone file ${zoneId}.zon already exists`, 409);
   }
 
   // Ensure directories exist
@@ -1071,7 +1072,7 @@ export async function cloneZone(
   const objs = await parseObjFileLocal(sourceZoneId);
 
   if (rooms.length === 0) {
-    throw new Error(`Source zone ${sourceZoneId} has no rooms`);
+    throw new AppError(`Source zone ${sourceZoneId} has no rooms`, 400);
   }
 
   // Determine source zone number from first room's vnum
@@ -1111,7 +1112,7 @@ export async function cloneZone(
   // Check if files with this base name already exist
   const zonPath = resolveSafeZoneFilePath(AREAS_DIR, newZoneId, 'zon');
   if (await fileExists(zonPath)) {
-    throw new Error(`Zone file ${newZoneId}.zon already exists`);
+    throw new AppError(`Zone file ${newZoneId}.zon already exists`, 409);
   }
 
   // Ensure directories exist
@@ -1160,7 +1161,7 @@ export async function cloneRoom(
   // Find source room
   const sourceRoom = rooms.find((r) => r.vnum === sourceVnum);
   if (!sourceRoom) {
-    throw new Error(`Source room ${sourceVnum} not found in zone ${zoneId}`);
+    throw new AppError(`Source room ${sourceVnum} not found in zone ${zoneId}`, 404);
   }
 
   // Determine target vnum
@@ -1168,7 +1169,7 @@ export async function cloneRoom(
   if (targetVnum !== undefined) {
     // Check if target vnum already exists
     if (rooms.some((r) => r.vnum === targetVnum)) {
-      throw new Error(`Room with vnum ${targetVnum} already exists`);
+      throw new AppError(`Room with vnum ${targetVnum} already exists`, 409);
     }
     newVnum = targetVnum;
   } else {
@@ -1231,7 +1232,7 @@ export async function writeZoneResets(zoneId: string, resets: ResetCommand[]): P
   const filePath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'zon');
 
   if (!(await fileExists(filePath))) {
-    throw new Error(`Zone file ${zoneId}.zon not found`);
+    throw new AppError(`Zone file ${zoneId}.zon not found`, 404);
   }
 
   // Create backup

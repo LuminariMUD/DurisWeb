@@ -419,8 +419,9 @@ export async function commitZoneFiles(
 
     return await commitFilesInDir(areasDir, zoneFiles, message);
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return { success: false, error: errorMessage };
+    // Builders see the result; git output can carry absolute paths, so it stays in the log (#176).
+    logger.error('Commit zone files failed', { message: getErrorMessage(error) });
+    return { success: false, error: 'Failed to commit zone files' };
   }
 }
 

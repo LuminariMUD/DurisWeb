@@ -2,6 +2,7 @@
 // Provides SSE streaming for large zone files using async generators
 
 import * as fs from 'fs';
+import { AppError } from '../middleware/errorHandler.js';
 import * as fsPromises from 'fs/promises';
 import logger from '../utils/logger.js';
 import * as path from 'path';
@@ -268,7 +269,7 @@ export async function* streamRooms(zoneId: string, chunkSize = 50): AsyncGenerat
   const wldPath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'wld');
 
   if (!(await fileExists(wldPath))) {
-    throw new Error(`Zone "${zoneId}" .wld file not found`);
+    throw new AppError(`Zone "${zoneId}" .wld file not found`, 404);
   }
 
   const rl = readline.createInterface({

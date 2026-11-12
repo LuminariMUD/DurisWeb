@@ -1,8 +1,9 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger, { getErrorMessage } from '../../utils/logger.js';
+import logger from '../../utils/logger.js';
 import { requireAuth } from '../../middleware/auth.js';
 import { pool } from '../../db/connection.js';
 import type { RowDataPacket } from 'mysql2';
+import { sendRouteError } from '../../utils/routeError.js';
 
 export const builderSettingsRoutes: IRouter = Router();
 
@@ -53,7 +54,7 @@ builderSettingsRoutes.get(
         return;
       }
       logger.error('Error getting builder settings:', error);
-      res.status(500).json({ error: 'Failed to get settings', message: getErrorMessage(error) });
+      sendRouteError(res, error, 'Failed to get settings', 'Failed to get settings');
     }
   },
 );
@@ -101,7 +102,7 @@ builderSettingsRoutes.put(
         return;
       }
       logger.error('Error updating builder settings:', error);
-      res.status(500).json({ error: 'Failed to update settings', message: getErrorMessage(error) });
+      sendRouteError(res, error, 'Failed to update settings', 'Failed to update settings');
     }
   },
 );

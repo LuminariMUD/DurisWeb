@@ -1,4 +1,5 @@
 import { pool as db } from '../db/connection.js';
+import { AppError } from '../middleware/errorHandler.js';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 import type { PoolConnection } from 'mysql2/promise';
 import type { ZoneComment, CreateZoneComment, UpdateZoneComment } from '../types/builder.js';
@@ -34,12 +35,12 @@ function sanitizeOptionalCommentHtml(value: unknown): string | null {
   }
 
   if (typeof value !== 'string') {
-    throw new Error('Comment HTML must be a string');
+    throw new AppError('Comment HTML must be a string', 400);
   }
 
   const processed = processContentForWrite(value);
   if (processed.error) {
-    throw new Error(processed.error);
+    throw new AppError(processed.error, 400);
   }
 
   return processed.content;
@@ -148,19 +149,19 @@ export async function createComment(
       data.procRequestId &&
       !(await getProcRequest(data.zoneId, data.procRequestId, connection))
     ) {
-      throw new Error('Proc request not found');
+      throw new AppError('Proc request not found', 400);
     }
 
     if (data.parentId) {
       const parent = await getComment(data.zoneId, data.parentId, connection);
       if (!parent) {
-        throw new Error('Parent comment not found');
+        throw new AppError('Parent comment not found', 400);
       }
       if (parent.parentId !== null) {
-        throw new Error('Cannot reply to a reply (single-level threading)');
+        throw new AppError('Cannot reply to a reply (single-level threading)', 400);
       }
       if (parent.procRequestId !== (data.procRequestId ?? null)) {
-        throw new Error('Parent comment belongs to another discussion');
+        throw new AppError('Parent comment belongs to another discussion', 400);
       }
     }
 
@@ -230,7 +231,7 @@ export async function updateComment(
 
   // Check ownership (unless admin)
   if (!isAdmin && existing.accountName !== accountName) {
-    throw new Error('Not authorized to edit this comment');
+    throw new AppError('Not authorized to edit this comment', 403);
   }
 
   await db.query(
@@ -265,7 +266,7 @@ export async function deleteComment(
 
     // Check ownership (unless admin)
     if (!isAdmin && existing.accountName !== accountName) {
-      throw new Error('Not authorized to delete this comment');
+      throw new AppError('Not authorized to delete this comment', 403);
     }
 
     // Delete replies first if this is a top-level comment

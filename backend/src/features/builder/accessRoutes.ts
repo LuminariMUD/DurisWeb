@@ -1,5 +1,5 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger, { getErrorMessage } from '../../utils/logger.js';
+import logger from '../../utils/logger.js';
 import zoneInfoService from '../../services/zoneInfoService.js';
 import { searchAccounts } from '../../services/accountService.js';
 import type { ZonePermissionLevel } from '../../types/builder.js';
@@ -9,6 +9,7 @@ import {
   canAccessZone,
   canManagePermissions,
 } from './shared.js';
+import { sendRouteError } from '../../utils/routeError.js';
 
 export const builderAccessRoutes: IRouter = Router();
 
@@ -50,7 +51,7 @@ builderAccessRoutes.get('/zones/:id/access', async (req: Request, res: Response)
     res.json({ canView, canEdit, canManage, permissionLevel });
   } catch (error) {
     logger.error('Error checking zone access:', error);
-    res.status(500).json({ error: 'Failed to check access', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to check access', 'Failed to check access');
   }
 });
 
@@ -78,9 +79,7 @@ builderAccessRoutes.get('/accessible-zones', async (req: Request, res: Response)
     res.json({ zoneIds });
   } catch (error) {
     logger.error('Error getting accessible zones:', error);
-    res
-      .status(500)
-      .json({ error: 'Failed to get accessible zones', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to get accessible zones', 'Failed to get accessible zones');
   }
 });
 
@@ -101,7 +100,7 @@ builderAccessRoutes.get('/zones/:id/info', async (req: Request, res: Response) =
     res.json({ info });
   } catch (error) {
     logger.error('Error getting zone info:', error);
-    res.status(500).json({ error: 'Failed to get zone info', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to get zone info', 'Failed to get zone info');
   }
 });
 
@@ -154,7 +153,7 @@ builderAccessRoutes.put('/zones/:id/info', async (req: Request, res: Response) =
     res.json({ info });
   } catch (error) {
     logger.error('Error updating zone info:', error);
-    res.status(500).json({ error: 'Failed to update zone info', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to update zone info', 'Failed to update zone info');
   }
 });
 
@@ -176,7 +175,7 @@ builderAccessRoutes.get('/zones/:id/info/history', async (req: Request, res: Res
     res.json(result);
   } catch (error) {
     logger.error('Error getting zone info history:', error);
-    res.status(500).json({ error: 'Failed to get history', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to get history', 'Failed to get history');
   }
 });
 
@@ -202,9 +201,7 @@ builderAccessRoutes.get('/zones/:id/permissions', async (req: Request, res: Resp
     });
   } catch (error) {
     logger.error('Error getting zone permissions:', error);
-    res
-      .status(500)
-      .json({ error: 'Failed to get zone permissions', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to get zone permissions', 'Failed to get zone permissions');
   }
 });
 
@@ -263,7 +260,7 @@ builderAccessRoutes.post('/zones/:id/permissions', async (req: Request, res: Res
     res.json({ success: true });
   } catch (error) {
     logger.error('Error granting zone permission:', error);
-    res.status(500).json({ error: 'Failed to grant permission', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to grant permission', 'Failed to grant permission');
   }
 });
 
@@ -317,9 +314,7 @@ builderAccessRoutes.delete(
       res.json({ success: true });
     } catch (error) {
       logger.error('Error revoking zone permission:', error);
-      res
-        .status(500)
-        .json({ error: 'Failed to revoke permission', message: getErrorMessage(error) });
+      sendRouteError(res, error, 'Failed to revoke permission', 'Failed to revoke permission');
     }
   },
 );
@@ -338,6 +333,6 @@ builderAccessRoutes.get('/accounts/search', async (req: Request, res: Response) 
     res.json({ accounts });
   } catch (error) {
     logger.error('Error searching accounts:', error);
-    res.status(500).json({ error: 'Failed to search accounts', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to search accounts', 'Failed to search accounts');
   }
 });

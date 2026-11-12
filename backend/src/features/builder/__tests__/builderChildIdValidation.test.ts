@@ -188,6 +188,29 @@ describe('builder child-resource ID validation', () => {
     expect(builderNotificationService.markAsRead).not.toHaveBeenCalled();
   });
 
+  it('keeps typed comment errors and hides driver text (#176)', async () => {
+    const { AppError } = await import('../../../middleware/errorHandler.js');
+    zoneCommentService.updateComment.mockRejectedValueOnce(
+      new AppError('Not authorized to edit this comment', 403),
+    );
+    const forbidden = await request(app)
+      .put('/api/builder/zones/zone-a/comments/12')
+      .send({ content: 'Updated comment' });
+    expect(forbidden.status).toBe(403);
+    expect(forbidden.body).toEqual({ error: 'Not authorized to edit this comment' });
+
+    zoneCommentService.deleteComment.mockRejectedValueOnce(
+      new Error('SENTINEL ENOENT /srv/duris/areas/zone-a.wld'),
+    );
+    const failed = await request(app).delete('/api/builder/zones/zone-a/comments/12');
+    expect(failed.status).toBe(500);
+    expect(JSON.stringify(failed.body)).not.toContain('SENTINEL');
+    expect(failed.body).toEqual({
+      error: 'Failed to delete comment',
+      reference: expect.any(String),
+    });
+  });
+
   it('preserves valid proc-request ID behavior', async () => {
     procRequestService.updateProcRequest.mockResolvedValueOnce({
       id: 12,

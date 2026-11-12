@@ -1,4 +1,5 @@
 import { pool as db } from '../db/connection.js';
+import { AppError } from '../middleware/errorHandler.js';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 import type { PoolConnection } from 'mysql2/promise';
 import type {
@@ -26,12 +27,12 @@ function sanitizeOptionalDescriptionHtml(value: unknown): string | null {
   }
 
   if (typeof value !== 'string') {
-    throw new Error('Description HTML must be a string');
+    throw new AppError('Description HTML must be a string', 400);
   }
 
   const processed = processContentForWrite(value);
   if (processed.error) {
-    throw new Error(processed.error);
+    throw new AppError(processed.error, 400);
   }
 
   return processed.content;

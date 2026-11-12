@@ -1,5 +1,5 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger, { getErrorMessage } from '../../utils/logger.js';
+import logger from '../../utils/logger.js';
 import { getMobileData } from '../../services/zoneBuilderParser.js';
 import {
   updateMobile,
@@ -9,6 +9,7 @@ import {
 } from '../../services/zoneBuilderWriter.js';
 import type { Mobile } from '../../types/builder.js';
 import { logBuilderActivity } from './shared.js';
+import { sendRouteError } from '../../utils/routeError.js';
 
 export const builderMobRoutes: IRouter = Router();
 
@@ -32,7 +33,7 @@ builderMobRoutes.get('/zones/:id/mobs/:vnum', async (req: Request, res: Response
     res.json({ mobile });
   } catch (error) {
     logger.error('Error getting mobile:', error);
-    res.status(500).json({ error: 'Failed to get mobile', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to get mobile', 'Failed to get mobile');
   }
 });
 
@@ -68,7 +69,7 @@ builderMobRoutes.put('/zones/:id/mobs/:vnum', async (req: Request, res: Response
     res.json({ success: true, mobile: mobileData });
   } catch (error) {
     logger.error('Error updating mobile:', error);
-    res.status(500).json({ error: 'Failed to update mobile', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to update mobile', 'Failed to update mobile');
   }
 });
 
@@ -130,7 +131,7 @@ builderMobRoutes.post('/zones/:id/mobs', async (req: Request, res: Response) => 
     res.status(201).json({ success: true, mobile });
   } catch (error) {
     logger.error('Error creating mobile:', error);
-    res.status(500).json({ error: 'Failed to create mobile', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to create mobile', 'Failed to create mobile');
   }
 });
 
@@ -165,6 +166,6 @@ builderMobRoutes.delete('/zones/:id/mobs/:vnum', async (req: Request, res: Respo
     res.json({ success: true });
   } catch (error) {
     logger.error('Error deleting mobile:', error);
-    res.status(500).json({ error: 'Failed to delete mobile', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to delete mobile', 'Failed to delete mobile');
   }
 });
