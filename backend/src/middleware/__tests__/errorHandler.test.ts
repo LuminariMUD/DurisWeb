@@ -1,4 +1,5 @@
 import express from 'express';
+import multer from 'multer';
 import request from 'supertest';
 import { beforeAll, describe, expect, it } from '@jest/globals';
 import { AppError, asyncHandler, errorHandler } from '../errorHandler.js';
@@ -18,6 +19,12 @@ describe('global request error handling', () => {
         throw Object.assign(new Error("Table 'duris.secret_table' doesn't exist"), {
           code: 'ER_NO_SUCH_TABLE',
         });
+      }),
+    );
+    app.get(
+      '/upload',
+      asyncHandler(async () => {
+        throw new multer.MulterError('LIMIT_FILE_SIZE', 'avatar');
       }),
     );
     app.get(
@@ -82,5 +89,12 @@ describe('global request error handling', () => {
 
     expect(response.status).toBe(500);
     expect(JSON.stringify(response.body)).not.toContain('ECONNREFUSED');
+  });
+
+  it('keeps the fixed text of a multer upload error as a 400', async () => {
+    const response = await request(app).get('/upload');
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.message).toBe('File too large');
   });
 });
