@@ -178,6 +178,18 @@ never enumerates and deletes an entire account or site prefix.
 Log-download read failures return fixed JSON before headers or terminate a partial
 stream after headers; client disconnects close the file stream.
 
+### Builder and operator failure boundaries
+
+Unexpected SSE/WebSocket, deployment and process-control exceptions use fixed text
+and a support reference. Intended command stdout/stderr remains available in the
+operator console. Failed control attempts report unknown state until it can be
+verified; a launcher spawn error is handled without an unhandled child event.
+
+Zone git commits and status reads cover only that zone’s exact paths, including
+tracked deletions. Unrelated staged work remains staged. Git refs and commit
+messages are passed as argument values, and a failed status read is not reported
+as a clean zone. Read/archive errors terminate partial downloads safely.
+
 ## Website data hold records
 
 The separate [website data hold API](../runbooks/data-holds.md) at
