@@ -1,4 +1,6 @@
-import logger, { getErrorMessage } from '../utils/logger.js';
+import { safeFailureCode } from '../utils/safeFailureCode.js';
+import { randomUUID } from 'node:crypto';
+import logger from '../utils/logger.js';
 import { verifyWebSocketToken } from '../middleware/auth.js';
 import { parseAccountFile } from '../services/accountService.js';
 import { hasActiveWebSession } from '../services/sessionService.js';
@@ -110,12 +112,13 @@ export const deployHandlers: Record<string, MessageHandler> = {
       // Start deployment (async, streams progress via WebSocket)
       await deployToCommit(ctx);
     } catch (error) {
-      logger.error('Deployment WebSocket error:', error);
+      const reference = randomUUID();
+      logger.error('Deployment WebSocket error:', { reference, code: safeFailureCode(error) });
       sendApplicationMessage(
         ws,
         JSON.stringify({
           type: 'DEPLOY_ERROR',
-          message: getErrorMessage(error) || 'Deployment failed',
+          message: `Deployment failed (reference ${reference})`,
         }),
       );
     }

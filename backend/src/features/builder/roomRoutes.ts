@@ -1,5 +1,4 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger from '../../utils/logger.js';
 import { getRoomData } from '../../services/zoneBuilderParser.js';
 import {
   updateRoom,
@@ -34,7 +33,6 @@ builderRoomRoutes.get('/zones/:id/rooms/:vnum', async (req: Request, res: Respon
 
     res.json({ room });
   } catch (error) {
-    logger.error('Error getting room:', error);
     sendRouteError(res, error, 'Failed to get room', 'Failed to get room');
   }
 });
@@ -98,7 +96,6 @@ builderRoomRoutes.put('/zones/:id/rooms/:vnum', async (req: Request, res: Respon
       warnings: validation.warnings.length > 0 ? validation.warnings : undefined,
     });
   } catch (error) {
-    logger.error('Error updating room:', error);
     sendRouteError(res, error, 'Failed to update room', 'Failed to update room');
   }
 });
@@ -145,7 +142,6 @@ builderRoomRoutes.post('/zones/:id/rooms', async (req: Request, res: Response) =
 
     res.status(201).json({ success: true, room });
   } catch (error) {
-    logger.error('Error creating room:', error);
     sendRouteError(res, error, 'Failed to create room', 'Failed to create room');
   }
 });
@@ -180,7 +176,6 @@ builderRoomRoutes.delete('/zones/:id/rooms/:vnum', async (req: Request, res: Res
 
     res.json({ success: true });
   } catch (error) {
-    logger.error('Error deleting room:', error);
     sendRouteError(res, error, 'Failed to delete room', 'Failed to delete room');
   }
 });
@@ -239,7 +234,6 @@ builderRoomRoutes.post('/zones/:id/rooms/:vnum/clone', async (req: Request, res:
       vnums, // Array of all created vnums
     });
   } catch (error) {
-    logger.error('Error cloning room:', error);
     sendRouteError(res, error, 'Failed to clone room', 'Failed to clone room');
   }
 });

@@ -1,5 +1,4 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger from '../../utils/logger.js';
 import { getObjectData } from '../../services/zoneBuilderParser.js';
 import {
   updateObject,
@@ -33,7 +32,6 @@ builderObjectRoutes.get('/zones/:id/objects/:vnum', async (req: Request, res: Re
 
     res.json({ object });
   } catch (error) {
-    logger.error('Error getting object:', error);
     sendRouteError(res, error, 'Failed to get object', 'Failed to get object');
   }
 });
@@ -90,7 +88,6 @@ builderObjectRoutes.put('/zones/:id/objects/:vnum', async (req: Request, res: Re
       warnings: validation.warnings.length > 0 ? validation.warnings : undefined,
     });
   } catch (error) {
-    logger.error('Error updating object:', error);
     sendRouteError(res, error, 'Failed to update object', 'Failed to update object');
   }
 });
@@ -147,7 +144,6 @@ builderObjectRoutes.post('/zones/:id/objects', async (req: Request, res: Respons
 
     res.status(201).json({ success: true, object });
   } catch (error) {
-    logger.error('Error creating object:', error);
     sendRouteError(res, error, 'Failed to create object', 'Failed to create object');
   }
 });
@@ -182,7 +178,6 @@ builderObjectRoutes.delete('/zones/:id/objects/:vnum', async (req: Request, res:
 
     res.json({ success: true });
   } catch (error) {
-    logger.error('Error deleting object:', error);
     sendRouteError(res, error, 'Failed to delete object', 'Failed to delete object');
   }
 });

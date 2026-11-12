@@ -1,5 +1,4 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger from '../../utils/logger.js';
 import { pool } from '../../db/connection.js';
 import {
   listZones,
@@ -53,7 +52,6 @@ builderZoneRoutes.get('/zones', async (req: Request, res: Response) => {
     const result = await listZones({ page, limit, search, filterByZoneIds });
     res.json(result);
   } catch (error) {
-    logger.error('Error listing zones:', error);
     sendRouteError(res, error, 'Failed to list zones', 'Failed to list zones');
   }
 });
@@ -74,7 +72,6 @@ builderZoneRoutes.get('/search', async (req: Request, res: Response) => {
     const result = await globalSearch(query, type, page, limit);
     res.json(result);
   } catch (error) {
-    logger.error('Error searching:', error);
     sendRouteError(res, error, 'Failed to search', 'Failed to search');
   }
 });
@@ -144,7 +141,6 @@ builderZoneRoutes.get('/activity', async (req: Request, res: Response) => {
       hasMore: offset + rows.length < total,
     });
   } catch (error) {
-    logger.error('Error fetching builder activity:', error);
     sendRouteError(res, error, 'Failed to fetch activity', 'Failed to fetch activity');
   }
 });
@@ -162,7 +158,6 @@ builderZoneRoutes.get('/zones/:id', async (req: Request, res: Response) => {
     const zone = await getZoneMapData(zoneId);
     res.json({ zone });
   } catch (error) {
-    logger.error('Error getting zone:', error);
     sendRouteError(res, error, 'Failed to get zone', 'Failed to get zone');
   }
 });
@@ -179,7 +174,6 @@ builderZoneRoutes.get('/zones/:id/header', async (req: Request, res: Response) =
     const { header, resets } = await parseZonFile(zoneId);
     res.json({ header, resetCount: resets.length });
   } catch (error) {
-    logger.error('Error getting zone header:', error);
     sendRouteError(res, error, 'Failed to get zone header', 'Failed to get zone header');
   }
 });
@@ -203,7 +197,6 @@ builderZoneRoutes.get('/zones/:id/next-vnum/:type', async (req: Request, res: Re
     const nextVnum = await getNextVnum(zoneId, type);
     res.json({ nextVnum });
   } catch (error) {
-    logger.error('Error getting next vnum:', error);
     sendRouteError(res, error, 'Failed to get next vnum', 'Failed to get next vnum');
   }
 });
@@ -240,7 +233,6 @@ builderZoneRoutes.post('/zones', async (req: Request, res: Response) => {
 
     res.status(201).json({ success: true, zoneId, zoneNumber: zoneNum, zoneName });
   } catch (error) {
-    logger.error('Error creating zone:', error);
     sendRouteError(res, error, 'Failed to create zone', 'Failed to create zone');
   }
 });
@@ -275,7 +267,6 @@ builderZoneRoutes.delete('/zones/:id', async (req: Request, res: Response) => {
 
     res.json({ success: true });
   } catch (error) {
-    logger.error('Error deleting zone:', error);
     sendRouteError(res, error, 'Failed to delete zone', 'Failed to delete zone');
   }
 });
@@ -315,7 +306,6 @@ builderZoneRoutes.post('/zones/:id/clone', async (req: Request, res: Response) =
       .status(201)
       .json({ success: true, sourceZoneId, newZoneId, targetZoneNumber: targetZoneNum });
   } catch (error) {
-    logger.error('Error cloning zone:', error);
     sendRouteError(res, error, 'Failed to clone zone', 'Failed to clone zone');
   }
 });
@@ -336,7 +326,6 @@ builderZoneRoutes.get('/zones/:id/positions', async (req: Request, res: Response
       lastModified: positionData?.lastModified || null,
     });
   } catch (error) {
-    logger.error('Error getting zone positions:', error);
     sendRouteError(res, error, 'Failed to get zone positions', 'Failed to get zone positions');
   }
 });
@@ -360,7 +349,6 @@ builderZoneRoutes.put('/zones/:id/positions', async (req: Request, res: Response
 
     res.json({ success: true, zoneId });
   } catch (error) {
-    logger.error('Error saving zone positions:', error);
     sendRouteError(res, error, 'Failed to save zone positions', 'Failed to save zone positions');
   }
 });

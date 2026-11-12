@@ -1,3 +1,4 @@
+import { safeFailureCode } from '../../utils/safeFailureCode.js';
 import { Router, Request, Response, type IRouter } from 'express';
 import logger from '../../utils/logger.js';
 import * as fs from 'fs';
@@ -13,6 +14,7 @@ import {
 } from '../../services/zoneBuilderStreamer.js';
 import { logBuilderActivity } from './shared.js';
 import { isPublicError, sendRouteError } from '../../utils/routeError.js';
+import { randomUUID } from 'node:crypto';
 
 export const builderStreamExportRoutes: IRouter = Router();
 
@@ -31,7 +33,6 @@ builderStreamExportRoutes.get('/zones/:id/counts', async (req: Request, res: Res
     const counts = await countZoneItems(zoneId);
     res.json(counts);
   } catch (error) {
-    logger.error('Error getting zone counts:', error);
     sendRouteError(res, error, 'Failed to get zone counts', 'Failed to get zone counts');
   }
 });
@@ -83,6 +84,7 @@ builderStreamExportRoutes.get('/zones/:id/stream/:type', async (req: Request, re
 
     // Stream data in chunks
     for await (const chunk of streamer(zoneId)) {
+      if (res.destroyed || res.writableEnded) return;
       loaded += chunk.length;
       res.write(`event: progress\ndata: ${JSON.stringify({ type, loaded, items: chunk })}\n\n`);
       flush();
@@ -93,9 +95,11 @@ builderStreamExportRoutes.get('/zones/:id/stream/:type', async (req: Request, re
     flush();
     res.end();
   } catch (error) {
-    logger.error(`Error streaming ${type} for zone ${zoneId}:`, error);
+    const reference = randomUUID();
+    logger.error('Zone SSE stream failed', { reference, code: safeFailureCode(error) });
+    if (res.destroyed || res.writableEnded) return;
     res.write(
-      `event: error\ndata: ${JSON.stringify({ type, message: isPublicError(error) ? error.message : 'Failed to load zone data' })}\n\n`,
+      `event: error\ndata: ${JSON.stringify({ type, message: isPublicError(error) ? error.message : `Failed to load zone data (reference ${reference})` })}\n\n`,
     );
     res.end();
   }
@@ -108,6 +112,14 @@ builderStreamExportRoutes.get('/zones/:id/stream/:type', async (req: Request, re
 // GET /api/builder/zones/:id/download/:type - Download zone file(s)
 // type = wld | mob | obj | zon | all (zip)
 builderStreamExportRoutes.get('/zones/:id/download/:type', async (req: Request, res: Response) => {
+  const failDownload = (error: unknown) => {
+    if (res.destroyed || res.writableEnded) return;
+    if (!res.headersSent) {
+      res.removeHeader('Content-Disposition');
+      res.type('json');
+    }
+    sendRouteError(res, error, 'Failed to download zone file', 'Zone download failed');
+  };
   try {
     const zoneId = req.params.id;
     const downloadType = req.params.type as 'wld' | 'mob' | 'obj' | 'zon' | 'all';
@@ -140,6 +152,8 @@ builderStreamExportRoutes.get('/zones/:id/download/:type', async (req: Request, 
 
       // Create zip archive with all zone files
       const archive = new ZipArchive({ zlib: { level: 9 } });
+      archive.once('error', failDownload);
+      res.once('close', () => archive.abort());
 
       res.setHeader('Content-Type', 'application/zip');
       res.setHeader('Content-Disposition', `attachment; filename="${zoneId}.zip"`);
@@ -179,6 +193,8 @@ builderStreamExportRoutes.get('/zones/:id/download/:type', async (req: Request, 
       res.setHeader('Content-Disposition', `attachment; filename="${zoneId}.${ext}"`);
 
       const fileStream = fs.createReadStream(filePath);
+      fileStream.once('error', failDownload);
+      res.once('close', () => fileStream.destroy());
       fileStream.pipe(res);
 
       await logBuilderActivity(
@@ -197,7 +213,6 @@ builderStreamExportRoutes.get('/zones/:id/download/:type', async (req: Request, 
       res.status(400).json({ error: 'Invalid or unsafe zone path' });
       return;
     }
-    logger.error('Error downloading zone file:', error);
-    sendRouteError(res, error, 'Failed to download zone file', 'Failed to download zone file');
+    failDownload(error);
   }
 });

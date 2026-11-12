@@ -189,6 +189,7 @@ describe('builder child-resource ID validation', () => {
   });
 
   it('keeps typed comment errors and hides driver text (#176)', async () => {
+    const { default: logger } = await import('../../../utils/logger.js');
     const { AppError } = await import('../../../middleware/errorHandler.js');
     zoneCommentService.updateComment.mockRejectedValueOnce(
       new AppError('Not authorized to edit this comment', 403),
@@ -209,6 +210,11 @@ describe('builder child-resource ID validation', () => {
       error: 'Failed to delete comment',
       reference: expect.any(String),
     });
+    expect(logger.error).toHaveBeenCalledTimes(1);
+    expect(jest.mocked(logger.error).mock.calls[0]).toEqual([
+      'Failed to delete comment',
+      { reference: failed.body.reference, code: 'unclassified' },
+    ]);
   });
 
   it('preserves valid proc-request ID behavior', async () => {
@@ -327,8 +333,9 @@ describe('builder child-resource ID validation', () => {
   it('grants comment moderation from zone-level manage, not from view access', async () => {
     testUser = { accountName: 'Builder', permissions: {}, adminPermissions: new Set() };
     canAccessZone.mockImplementation(async (...args) => args[2] !== 'manage');
+    const { AppError } = await import('../../../middleware/errorHandler.js');
     zoneCommentService.deleteComment.mockRejectedValueOnce(
-      new Error('Not authorized to delete this comment'),
+      new AppError('Not authorized to delete this comment', 403),
     );
 
     const denied = await request(app).delete('/api/builder/zones/zone-a/comments/9');
@@ -382,7 +389,10 @@ describe('builder child-resource ID validation', () => {
     expect(malformed.status).toBe(400);
     expect(zoneCommentService.createComment).not.toHaveBeenCalled();
 
-    zoneCommentService.createComment.mockRejectedValueOnce(new Error('Proc request not found'));
+    const { AppError } = await import('../../../middleware/errorHandler.js');
+    zoneCommentService.createComment.mockRejectedValueOnce(
+      new AppError('Proc request not found', 400),
+    );
     const foreign = await request(app)
       .post('/api/builder/zones/zone-a/comments')
       .send({ content: 'hi', procRequestId: 4 });
@@ -396,8 +406,9 @@ describe('builder child-resource ID validation', () => {
   });
 
   it('returns 400 for a parent from a different discussion', async () => {
+    const { AppError } = await import('../../../middleware/errorHandler.js');
     zoneCommentService.createComment.mockRejectedValueOnce(
-      new Error('Parent comment belongs to another discussion'),
+      new AppError('Parent comment belongs to another discussion', 400),
     );
     const response = await request(app)
       .post('/api/builder/zones/zone-a/comments')

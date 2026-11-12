@@ -1,3 +1,4 @@
+import { safeFailureCode } from '../utils/safeFailureCode.js';
 // Zone File Writer for DurisMUD
 // Writes .wld, .mob, .obj files back to disk
 // Uses zone ID (filename) as unique identifier
@@ -46,7 +47,7 @@ async function buildSpeciesMaps(): Promise<void> {
       }
     }
   } catch (error) {
-    logger.error('Failed to build species maps:', error);
+    logger.error('Failed to build species maps:', { code: safeFailureCode(error) });
   }
 }
 
@@ -1046,7 +1047,7 @@ export async function deleteZone(zoneId: string): Promise<boolean> {
       deletedAny = true;
     } catch (error) {
       if (isErrorWithCode(error) && error.code !== 'ENOENT') {
-        logger.error(`Failed to delete ${filePath}:`, error);
+        logger.error(`Failed to delete ${filePath}:`, { code: safeFailureCode(error) });
       }
     }
   }

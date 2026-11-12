@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto';
+import logger from '../utils/logger.js';
+import { safeFailureCode } from '../utils/safeFailureCode.js';
 import { pool } from '../db/connection.js';
 import { RowDataPacket } from 'mysql2';
 import { exec, spawn } from 'child_process';
@@ -342,6 +345,10 @@ export async function startMud(accountName: string, _ipAddress: string): Promise
       output(data.toString());
     });
 
+    await new Promise<void>((resolve, reject) => {
+      child.once('spawn', resolve);
+      child.once('error', reject);
+    });
     child.unref();
 
     // Wait briefly and verify process started
@@ -381,10 +388,12 @@ export async function startMud(accountName: string, _ipAddress: string): Promise
     recordHookActivity('process_control');
     return { success: true, message: 'MUD started successfully' };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    output(`Error: ${errorMessage}\n`, true);
-    broadcastState({ state: 'stopped', action: 'start', by: accountName });
-    return { success: false, message: `Failed to start MUD: ${errorMessage}` };
+    const reference = randomUUID();
+    logger.error('MUD start failed', { reference, code: safeFailureCode(error) });
+    const message = `Failed to start MUD (reference ${reference})`;
+    output(message + '\n', true);
+    broadcastState({ state: 'unknown', action: 'start', by: accountName });
+    return { success: false, message };
   }
 }
 
@@ -474,10 +483,12 @@ export async function stopMud(
     recordHookActivity('process_control');
     return { success: true, message: 'MUD stopped successfully' };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    output(`Error: ${errorMessage}\n`, true);
-    broadcastState({ state: 'stopped', action: 'stop', by: accountName, reason });
-    return { success: false, message: `Failed to stop MUD: ${errorMessage}` };
+    const reference = randomUUID();
+    logger.error('MUD stop failed', { reference, code: safeFailureCode(error) });
+    const message = `Failed to stop MUD (reference ${reference})`;
+    output(message + '\n', true);
+    broadcastState({ state: 'unknown', action: 'stop', by: accountName, reason });
+    return { success: false, message };
   }
 }
 
@@ -585,6 +596,10 @@ export async function restartMud(
       broadcastOutput(operationId, data.toString());
     });
 
+    await new Promise<void>((resolve, reject) => {
+      child.once('spawn', resolve);
+      child.once('error', reject);
+    });
     child.unref();
 
     await sleep(2000);
@@ -618,9 +633,11 @@ export async function restartMud(
     recordHookActivity('process_control');
     return { success: true, message: 'MUD restarted successfully' };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    output(`Error: ${errorMessage}\n`, true);
-    broadcastState({ state: 'stopped', action: 'restart', by: accountName, reason });
-    return { success: false, message: `Failed to restart MUD: ${errorMessage}` };
+    const reference = randomUUID();
+    logger.error('MUD restart failed', { reference, code: safeFailureCode(error) });
+    const message = `Failed to restart MUD (reference ${reference})`;
+    output(message + '\n', true);
+    broadcastState({ state: 'unknown', action: 'restart', by: accountName, reason });
+    return { success: false, message };
   }
 }

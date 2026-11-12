@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import type { IncomingMessage } from 'node:http';
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { WebSocket } from 'ws';
 import type { UserPermissions } from '../../services/permissionService.js';
 import { stubModule } from '../../test/stubModule.js';
@@ -15,6 +15,8 @@ const unwatchLog = jest.fn();
 const createSession = jest.fn(async (..._args: unknown[]) => ({ sessionId: 5 }));
 const destroySession = jest.fn(async (_sessionId: number) => undefined);
 const deployToCommit = jest.fn(async () => undefined);
+const countZoneItems =
+  jest.fn<typeof import('../../services/zoneBuilderStreamer.js').countZoneItems>();
 
 const stub = (specifier: string, overrides?: Record<string, unknown>) =>
   jest.unstable_mockModule(specifier, stubModule(new URL(specifier, import.meta.url), overrides));
@@ -48,14 +50,20 @@ stub('../../services/terminalService.js', {
   destroySession,
   getSessionByWebSocket: () => terminalSession,
 });
-stub('../../services/deploymentService.js', { deployToCommit });
-stub('../../services/gitService.js');
-stub('../../services/zoneBuilderStreamer.js');
-stub('../../services/zoneInfoService.js');
+stub('../../services/deploymentService.js', {
+  deployToCommit,
+  determineDeployAction: async () => 'deploy',
+});
+stub('../../services/gitService.js', {
+  getCurrentCommitHash: async () => ({ full: 'a'.repeat(40), short: 'a'.repeat(7) }),
+});
+stub('../../services/zoneBuilderStreamer.js', { countZoneItems });
+stub('../../services/zoneInfoService.js', { canAccessZone: async () => true });
 
 const { handleApplicationConnection } = await import('../applicationSocket.js');
 const { clientState } = await import('../clientState.js');
 const { generateTerminalToken, generateWebSocketToken } = await import('../../middleware/auth.js');
+const { default: logger } = await import('../../utils/logger.js');
 
 type SyntheticSocket = EventEmitter & {
   readyState: number;
@@ -88,6 +96,9 @@ const state = (ws: SyntheticSocket) => clientState(ws as unknown as WebSocket);
 const wsToken = () => generateWebSocketToken('Fixture', 'f@example.invalid', 'sid');
 
 describe('application socket dispatch', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
   beforeEach(() => {
     role = 'player';
     maxLevel = 50;
@@ -152,6 +163,60 @@ describe('application socket dispatch', () => {
       message: 'Overlord access required for deployment',
     });
     expect(deployToCommit).not.toHaveBeenCalled();
+  });
+
+  it('keeps an unexpected deployment exception out of replies and logs', async () => {
+    const log = jest.spyOn(logger, 'error').mockImplementation(() => logger);
+    role = 'overlord';
+    deployToCommit.mockRejectedValueOnce(new Error('DEPLOY_PRIVATE_SENTINEL'));
+    const ws = connect();
+    await send(ws, { type: 'DEPLOY_START', token: wsToken(), targetHash: 'a'.repeat(40) });
+    expect(deployToCommit).toHaveBeenCalledTimes(1);
+    expect(replies(ws).at(-1)).toMatchObject({
+      type: 'DEPLOY_ERROR',
+      message: expect.stringMatching(/^Deployment failed \(reference /),
+    });
+    expect(JSON.stringify(replies(ws))).not.toContain('DEPLOY_PRIVATE_SENTINEL');
+    expect(log.mock.calls).toEqual([
+      [
+        'Deployment WebSocket error:',
+        {
+          reference: expect.any(String),
+          code: 'unclassified',
+        },
+      ],
+    ]);
+    expect(log).toHaveBeenCalledTimes(1);
+    ws.emit('close');
+  });
+
+  it('keeps a zone-stream exception out of replies and logs', async () => {
+    const log = jest.spyOn(logger, 'error').mockImplementation(() => logger);
+    countZoneItems.mockRejectedValueOnce(new Error('ZONE_PRIVATE_SENTINEL'));
+    const ws = connect();
+    await send(ws, {
+      type: 'ZONE_STREAM_START',
+      zoneId: 'zone-a',
+      streamType: 'rooms',
+      token: wsToken(),
+    });
+    expect(countZoneItems).toHaveBeenCalledWith('zone-a');
+    expect(replies(ws).at(-1)).toMatchObject({
+      type: 'ZONE_STREAM_ERROR',
+      message: expect.stringMatching(/^Failed to load zone data \(reference /),
+    });
+    expect(JSON.stringify(replies(ws))).not.toContain('ZONE_PRIVATE_SENTINEL');
+    expect(log.mock.calls).toEqual([
+      [
+        'Zone WebSocket stream failed',
+        {
+          reference: expect.any(String),
+          code: 'unclassified',
+        },
+      ],
+    ]);
+    expect(log).toHaveBeenCalledTimes(1);
+    ws.emit('close');
   });
 
   it('releases log watchers and the terminal on close', async () => {

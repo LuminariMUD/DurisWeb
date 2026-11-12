@@ -1,9 +1,11 @@
+import { safeFailureCode } from '../utils/safeFailureCode.js';
 import { spawn } from 'child_process';
 import { WebSocket } from 'ws';
 import { sendApplicationMessage } from '../utils/applicationWebSocket.js';
 import { pool } from '../db/connection.js';
 import { refreshGitCache, getCurrentCommitHash } from './gitService.js';
-import logger, { getErrorMessage } from '../utils/logger.js';
+import { randomUUID } from 'node:crypto';
+import logger from '../utils/logger.js';
 import { getBackendConfiguration } from '../config/environment.js';
 
 // Get MUD_DIR from environment - validated at startup in index.ts
@@ -104,7 +106,7 @@ async function logDeployment(ctx: DeploymentContext, compileSuccess: boolean): P
       ],
     );
   } catch (error) {
-    logger.error('Failed to log deployment:', error);
+    logger.error('Failed to log deployment:', { code: safeFailureCode(error) });
   }
 }
 
@@ -216,7 +218,7 @@ export async function deployToCommit(ctx: DeploymentContext): Promise<void> {
     try {
       await refreshGitCache();
     } catch (error) {
-      logger.error('Failed to refresh git cache:', error);
+      logger.error('Failed to refresh git cache:', { code: safeFailureCode(error) });
     }
 
     // Step 7: Send final result
@@ -246,14 +248,15 @@ export async function deployToCommit(ctx: DeploymentContext): Promise<void> {
       }),
     );
   } catch (error) {
-    logger.error('Deployment error:', error);
-    sendProgress(ws, 'error', `>>> Deployment failed: ${getErrorMessage(error)}`);
+    const reference = randomUUID();
+    logger.error('Deployment error:', { reference, code: safeFailureCode(error) });
+    sendProgress(ws, 'error', `>>> Deployment failed (reference ${reference})`);
     sendApplicationMessage(
       ws,
       JSON.stringify({
         type: 'DEPLOY_COMPLETE',
         success: false,
-        error: getErrorMessage(error),
+        error: `Deployment failed (reference ${reference})`,
       }),
     );
 

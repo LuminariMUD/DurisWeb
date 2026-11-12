@@ -1,3 +1,4 @@
+import { safeFailureCode } from '../utils/safeFailureCode.js';
 // Zone File Parser for DurisMUD
 // Parses .wld, .mob, .obj, .zon files
 
@@ -431,7 +432,7 @@ async function buildSpeciesCodeMap(): Promise<Map<string, number>> {
 
     logger.info(`Built species code map with ${map.size} entries`);
   } catch (error) {
-    logger.error('Failed to build species code map:', error);
+    logger.error('Failed to build species code map:', { code: safeFailureCode(error) });
   }
 
   speciesCodeMap = map;
@@ -515,7 +516,7 @@ async function buildZoneFileMap(): Promise<ZoneFileMapCache> {
     if (error instanceof UnsafeZonePathError) {
       recordDroppedFlatfileInput('zone_builder_parsing');
     }
-    logger.error('Error building zone file map:', error);
+    logger.error('Error building zone file map:', { code: safeFailureCode(error) });
     throw error;
   }
 
@@ -687,7 +688,7 @@ async function buildZoneIndex(): Promise<ZoneIndex[]> {
 
     return zones;
   } catch (error) {
-    logger.error('Error building zone index:', error);
+    logger.error('Error building zone index:', { code: safeFailureCode(error) });
     throw error;
   }
 }
@@ -1961,7 +1962,7 @@ export async function getZonePositions(zoneId: string): Promise<ZonePositions | 
     const content = await readFile(filePath);
     return JSON.parse(content) as ZonePositions;
   } catch (error) {
-    logger.error(`Error reading positions for zone ${zoneId}:`, error);
+    logger.error(`Error reading positions for zone ${zoneId}:`, { code: safeFailureCode(error) });
     return null;
   }
 }
@@ -2242,7 +2243,7 @@ export async function parseAllShopFiles(): Promise<Map<number, ShopData>> {
       }
     }
   } catch (e) {
-    logger.error('Error reading shop directory:', e);
+    logger.error('Error reading shop directory:', { code: safeFailureCode(e) });
   }
 
   shopDataCache = shopMap;

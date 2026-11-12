@@ -62,6 +62,11 @@ export function errorHandler(
     code: safeFailureCode(err),
   });
 
+  if (res.headersSent || res.destroyed || res.writableEnded) {
+    res.destroy();
+    return;
+  }
+
   res.status(statusCode).json({
     success: false,
     error: {

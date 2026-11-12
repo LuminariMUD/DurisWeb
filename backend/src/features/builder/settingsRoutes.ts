@@ -1,5 +1,4 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger from '../../utils/logger.js';
 import { requireAuth } from '../../middleware/auth.js';
 import { pool } from '../../db/connection.js';
 import type { RowDataPacket } from 'mysql2';
@@ -53,7 +52,6 @@ builderSettingsRoutes.get(
         res.json({ settings: {} });
         return;
       }
-      logger.error('Error getting builder settings:', error);
       sendRouteError(res, error, 'Failed to get settings', 'Failed to get settings');
     }
   },
@@ -101,7 +99,6 @@ builderSettingsRoutes.put(
         res.status(500).json({ error: 'Builder settings table not found. Please run migrations.' });
         return;
       }
-      logger.error('Error updating builder settings:', error);
       sendRouteError(res, error, 'Failed to update settings', 'Failed to update settings');
     }
   },
