@@ -6,9 +6,61 @@ Branch: `branch/issue-181-character-link-privacy` (linked to the issue)
 
 Prepared: 12 November 2026 against DurisWeb `37344926c2873ef5afae0093467f054d5573c156`.
 
-**Status: plan only; implementation has not started.** Owner decision on the issue:
-"ADOPT OPTION # 4". The earlier plans in this file are preserved unchanged below the
-`Previous plans` divider.
+**Status: PR A (steps 5–11) ready for review; PR B (steps 1–4, 12–13) next.**
+Owner decision on the issue: "ADOPT OPTION # 4". The earlier plans in this file are
+preserved unchanged below the `Previous plans` divider.
+
+## Implementation handoff — read this first
+
+Delivery is two stacked PRs, so each one can deploy on its own without breaking the
+live site:
+
+| PR | Branch | Scope | State |
+|---|---|---|---|
+| A | `branch/issue-181-character-link-privacy` → `master` | Live-character flags (steps 5–6), public `/character/:name` page, every link switched to it, lookup client methods and dead guard removed (steps 7–11) | ready for review |
+| B | `branch/issue-181-remove-account-lookups` → A | Remove the two forum lookups, `/api/frag/account` and frag `account_name` (steps 1–4), docs and changelog draft (12–13) | in progress |
+
+PR A no longer calls any lookup, so PR B's removals cannot break a deployed PR A
+frontend. Deploy and merge A before B.
+
+What PR A did, and decisions made while implementing it:
+
+- **Flags.** `getPvPEventDetail` returns `character_exists` and `getGuildProfile`
+  members return `characterExists`. Both use the same `EXISTS(... account_characters
+  ac WHERE ac.pid = <pid> AND ac.deleted_at IS NULL)`. Neither carries an account.
+- **Character page.** `CharacterProfileView.vue` was rewritten onto the four public
+  sources. A frag 404 shows "Character not found". A missing PvP summary shows `—`
+  instead of failing.
+  - The orphan view's old route names (`thread`, `pvp-battle`) did not exist. The
+    rewrite uses `forum-thread` and `battle-detail`.
+  - **Correction to the evidence above:** the character posts and PvP payloads carry
+    no account at all (`forumService.ts` `getCharacterPosts`, `getCharacterPvPEvents`).
+- **Removed client code.** `profileApi.getCharacterAccount`,
+  `getCharacterAccountsBatch`, `characterApi.getCharacterProfile` and the dead
+  `redirectToUserProfile` guard. The backend owner-only `/characters/:name/profile`
+  route stays (open question 2).
+- **Guild test.** No backend test was added for the guild flag. `getGuildProfile`
+  needs MUD guild files, the SQL is identical to the battle flag (proven natively),
+  and the mapping is `Boolean(...)`.
+- **Separate defect found.** `GuildProfileView.vue` `navigateToThread` pushes the
+  route name `thread`, which does not exist (it should be `forum-thread`), so its
+  forum-activity cards throw. It is not part of this issue; fix it as its own PR.
+
+PR A verification (worktree `/home/aiwithapex/projects/durisweb-issue-181`):
+
+- `NODE_ENV=test TEST_PVP_DB_PORT=47181 pnpm --dir backend test --runInBand src/features/forum src/services/__tests__/pvpService.test.ts src/routes/__tests__/pvpIdValidation.test.ts`
+  → 5 suites, 149 passed. The new native case covers a live pid, a retired pid whose
+  name was reused, and an unlinked pid.
+  - Port 47181 is a disposable `mariadb:11.8` container named `durisweb-181-pvp-db`,
+    with an empty root password.
+- `pnpm --dir backend format:check`, `lint`, `type-check` → clean.
+- `pnpm --dir frontend test:unit --run` → 98 files, 770 passed. This includes the
+  updated `BattleDetailView.spec.ts` and the new `CharacterProfileView.spec.ts` and
+  `components/frag/__tests__/FragLeaderboardTable.spec.ts`.
+- `pnpm --dir frontend format:check`, `lint`, `type-check`,
+  `./frontend/scripts/check-palette-literals.sh`, `build` → clean or passed.
+- Not run yet: the rendered browser check, and the backend build and full suite
+  (both planned for PR B).
 
 ## Outcome
 
@@ -55,8 +107,7 @@ Other findings that shape the plan:
   `/api/pvp/stats/player/:name` (`routes/pvp.ts:218`; kills, deaths, K/D),
   `/api/forum/characters/:name/pvp` and `/api/forum/characters/:name/posts`
   (`profileRoutes.ts:611-660`). The public page is composed from these four calls, so it needs
-  no new backend endpoint. Each post object carries its author account, but that pairing is
-  already public on the thread by the author's choice.
+  no new backend endpoint. Neither payload carries an account.
 - **Existence checks.** Battle Detail (`BattleDetailView.vue:90-111`) and Guild Profile
   (`GuildProfileView.vue:98-121`, one sequential request per member) call the lookups only to
   decide between "live" and "struck through". Both payloads already carry each character's

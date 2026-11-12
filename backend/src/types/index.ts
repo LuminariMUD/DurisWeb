@@ -71,6 +71,8 @@ export interface ParticipantInfo {
   log: string | null;
   inroom: number;
   leader: number | null;
+  /** True while a live account link exists for this pid. */
+  character_exists: boolean;
 }
 
 export interface PlayerStats {

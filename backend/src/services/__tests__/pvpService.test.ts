@@ -238,6 +238,13 @@ databaseTests('PvP SQL contract on a disposable database', () => {
       'CREATE TABLE frag_leaderboard(pid INT, char_name VARCHAR(255), race VARCHAR(255), class VARCHAR(255), level INT)',
     );
     await connection.query(
+      'CREATE TABLE account_characters(account_name VARCHAR(50), char_name VARCHAR(50), pid INT, deleted_at DATETIME NULL)',
+    );
+    // Pid 1 is live; pid 2 is retired and its name now belongs to pid 9; pid 3 has no link.
+    await connection.query(
+      "INSERT INTO account_characters VALUES ('Owner','Fixture',1,NULL),('Former','Other',2,'2020-02-01'),('Current','Other',9,NULL)",
+    );
+    await connection.query(
       "INSERT INTO pkill_event(id,stamp,room_name,room_vnum) VALUES(1,'2020-01-01','Fixture room',1)",
     );
     await connection.query('INSERT INTO player_data VALUES (1,0),(2,134217728),(3,134217728)');
@@ -298,6 +305,13 @@ databaseTests('PvP SQL contract on a disposable database', () => {
       isLeader: true,
       level: 56,
     });
+  });
+
+  it('flags only participants whose own pid still has a live account link', async () => {
+    const participants = (await service.getPvPEventDetail(1))?.participants ?? [];
+    const flags = Object.fromEntries(participants.map((p) => [p.pid, p.character_exists]));
+    expect(flags).toEqual({ 1: true, 2: false, 3: false });
+    expect(JSON.stringify(participants)).not.toMatch(/Owner|Former|Current/);
   });
 
   it('keeps raw snapshots behind the privacy gate and exposes public snapshots intact', async () => {
