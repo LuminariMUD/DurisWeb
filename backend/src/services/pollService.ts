@@ -347,7 +347,7 @@ export async function castVote(
 
     // Get poll
     const [polls] = await connection.query<RowDataPacket[]>(
-      'SELECT * FROM forum_polls WHERE id = ?',
+      'SELECT * FROM forum_polls WHERE id = ? FOR UPDATE',
       [pollId],
     );
 
@@ -455,10 +455,14 @@ export async function removeVote(
     await connection.beginTransaction();
 
     // Get poll
-    const poll = pollAccess.poll;
-    if (!poll) {
+    const [polls] = await connection.query<RowDataPacket[]>(
+      'SELECT * FROM forum_polls WHERE id = ? FOR UPDATE',
+      [pollId],
+    );
+    if (!polls.length) {
       throw new AppError('Poll not found', 404);
     }
+    const poll = polls[0] as ForumPoll;
 
     // Check if poll is active
     if (!isPollActive(poll)) {
