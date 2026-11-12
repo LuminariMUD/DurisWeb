@@ -5,9 +5,16 @@ const extractMentions = jest.fn(() => []);
 const createMentions = jest.fn();
 const deleteMentions = jest.fn();
 const createNotification = jest.fn();
+const connection = {
+  query,
+  beginTransaction: jest.fn<() => Promise<void>>(),
+  commit: jest.fn<() => Promise<void>>(),
+  rollback: jest.fn<() => Promise<void>>(),
+  release: jest.fn(),
+};
 
 jest.unstable_mockModule('../../db/connection.js', () => ({
-  pool: { query },
+  pool: { query, getConnection: async () => connection },
 }));
 jest.unstable_mockModule('../builderNotificationService.js', () => ({
   extractMentions,
@@ -136,6 +143,36 @@ describe('proc request zone scoping', () => {
     expect(query.mock.calls[2][1]).toEqual([7, 'zone-a']);
   });
 
+  it('does not notify when a concurrent deletion wins before the UPDATE', async () => {
+    query
+      .mockResolvedValueOnce([
+        [
+          {
+            id: 7,
+            zone_id: 'zone-a',
+            title: 'T',
+            status: 'requested',
+            assigned_to: null,
+            requested_by: 'Requester',
+          },
+        ],
+      ])
+      .mockResolvedValueOnce([{ affectedRows: 0 }]);
+
+    await expect(
+      procRequestService.updateProcRequestStatus(
+        'zone-a',
+        7,
+        'completed',
+        'Assignee',
+        'Editor',
+        'Zone A',
+      ),
+    ).resolves.toBeNull();
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(createNotification).not.toHaveBeenCalled();
+  });
+
   it('deletes by ID and zone, and keeps mentions when nothing matched', async () => {
     query.mockResolvedValueOnce([{ affectedRows: 0 }]);
 
@@ -145,9 +182,26 @@ describe('proc request zone scoping', () => {
       [7, 'zone-a'],
     ]);
     expect(deleteMentions).not.toHaveBeenCalled();
+    expect(connection.rollback).toHaveBeenCalledTimes(1);
+    expect(connection.commit).not.toHaveBeenCalled();
+    expect(connection.release).toHaveBeenCalledTimes(1);
 
     query.mockResolvedValueOnce([{ affectedRows: 1 }]);
     await expect(procRequestService.deleteProcRequest('zone-a', 7)).resolves.toBe(true);
-    expect(deleteMentions).toHaveBeenCalledWith('proc_request', 7);
+    expect(deleteMentions).toHaveBeenCalledWith('proc_request', 7, connection);
+    expect(connection.commit).toHaveBeenCalledTimes(1);
+    expect(connection.release).toHaveBeenCalledTimes(2);
+  });
+
+  it('rolls deletion back and releases the connection when mention cleanup fails', async () => {
+    query.mockResolvedValueOnce([{ affectedRows: 1 }]);
+    deleteMentions.mockImplementationOnce(() => Promise.reject(new Error('cleanup failed')));
+
+    await expect(procRequestService.deleteProcRequest('zone-a', 7)).rejects.toThrow(
+      'cleanup failed',
+    );
+    expect(connection.rollback).toHaveBeenCalledTimes(1);
+    expect(connection.commit).not.toHaveBeenCalled();
+    expect(connection.release).toHaveBeenCalledTimes(1);
   });
 });
