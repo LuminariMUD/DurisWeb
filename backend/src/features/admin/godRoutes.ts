@@ -11,6 +11,7 @@ import {
 import { getUserPermissions } from '../../services/permissionService.js';
 import { revokeAllWebSessions } from '../../services/sessionService.js';
 import { cleanupAccountSessions } from '../../services/terminalService.js';
+import { revokeSocketSessions } from '../../realtime/socketAuth.js';
 import { pool as db } from '../../db/connection.js';
 import bcrypt from 'bcrypt';
 
@@ -112,6 +113,7 @@ adminGodRoutes.post(
       await updateAccountPassword(canonicalName, newPasswordHash);
       await revokeAllWebSessions(canonicalName);
       await cleanupAccountSessions(canonicalName);
+      revokeSocketSessions({ accountName: canonicalName });
 
       await db.query(
         `INSERT INTO admin_action_log (account_name, action_type, target, notes)

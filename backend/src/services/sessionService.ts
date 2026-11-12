@@ -79,6 +79,30 @@ export async function hasMatchingRefreshSession(
   return hasSession(accountName, sessionId, digest);
 }
 
+/**
+ * Return which `(accountName, sessionId)` pairs are still active, with the same predicates
+ * as `hasActiveWebSession`, in one query. Used to revalidate open WebSocket principals.
+ */
+export async function getActiveWebSessionIds(
+  sessions: ReadonlyArray<{ accountName: string; sessionId: string }>,
+): Promise<Set<string>> {
+  if (sessions.length === 0) return new Set();
+  try {
+    const [rows] = await pool.query<ActiveSessionRow[]>(
+      `SELECT id
+     FROM web_sessions
+     WHERE (id, account_name) IN (${sessions.map(() => '(?, ?)').join(', ')})
+       AND refresh_token_digest IS NOT NULL
+       AND expires_at_epoch > UNIX_TIMESTAMP()`,
+      sessions.flatMap(({ accountName, sessionId }) => [sessionId, accountName]),
+    );
+    return new Set(rows.map((row) => row.id));
+  } catch {
+    // mysql2 errors can include interpolated SQL and credential bindings.
+    throw new Error('Web session lookup failed');
+  }
+}
+
 export async function revokeAllWebSessions(accountName: string): Promise<number> {
   if (!accountName) return 0;
 

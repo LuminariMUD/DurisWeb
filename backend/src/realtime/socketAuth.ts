@@ -1,12 +1,17 @@
-import type { WebSocket } from 'ws';
+import { WebSocket } from 'ws';
 import logger, { getErrorMessage } from '../utils/logger.js';
 import { verifyToken, verifyWebSocketToken, isAccessToken } from '../middleware/auth.js';
 import { parseAccountFile } from '../services/accountService.js';
-import { hasActiveWebSession } from '../services/sessionService.js';
-import { getUserPermissions } from '../services/permissionService.js';
+import { getActiveWebSessionIds, hasActiveWebSession } from '../services/sessionService.js';
+import { getUserPermissions, type UserPermissions } from '../services/permissionService.js';
 import { canAccessZone } from '../services/zoneInfoService.js';
 import { hasWebSocketPermission, type WebSocketPrincipal } from '../utils/websocketAccess.js';
+import { applicationClients } from './broadcasts.js';
 import { clientState } from './clientState.js';
+import { closeTerminal } from './terminalHandlers.js';
+
+/** Close code for a socket whose web session ended or could not be revalidated. */
+const SESSION_ENDED_CLOSE_CODE = 4401;
 
 /** Verify a WebSocket capability (or access cookie) and require a minimum character level. */
 export async function verifyWebSocketAuth(
@@ -58,10 +63,147 @@ export async function hydrateWebSocketPrincipal(
 
   try {
     const principal = await verifyWebSocketAuth(decodeURIComponent(token), 0, true);
-    if (principal) clientState(ws).wsPrincipal = principal;
+    // A token-authenticated subscribe may have set a principal while the cookie was checked;
+    // never replace it, and never give a principal to a socket that has already closed.
+    const state = clientState(ws);
+    if (principal && ws.readyState === WebSocket.OPEN && state.wsPrincipal === undefined) {
+      state.wsPrincipal = principal;
+    }
   } catch (error) {
     logger.warn('[WebSocket] cookie principal hydration failed:', getErrorMessage(error));
   }
+}
+
+const sameAccount = (a: string | undefined, b: string) =>
+  a !== undefined && a.toLowerCase() === b.toLowerCase();
+
+/** The web sessions a socket acts for: its push principal and its terminal owner. */
+function socketSessions(ws: WebSocket): Array<{ accountName: string; sessionId: string }> {
+  const { wsPrincipal, terminalAuth } = clientState(ws);
+  const sessions: Array<{ accountName: string; sessionId: string }> = [];
+  if (wsPrincipal) {
+    sessions.push({ accountName: wsPrincipal.accountName, sessionId: wsPrincipal.sessionId });
+  }
+  if (terminalAuth?.accountName && terminalAuth.webSessionId) {
+    sessions.push({ accountName: terminalAuth.accountName, sessionId: terminalAuth.webSessionId });
+  }
+  return sessions;
+}
+
+function endSocketSession(ws: WebSocket): void {
+  if (ws.readyState === WebSocket.OPEN) ws.close(SESSION_ENDED_CLOSE_CODE, 'Session ended');
+}
+
+/**
+ * Close every application socket acting for an ended web session: one session on logout, or
+ * all of an account's sessions after a password change or reset. The close listener releases
+ * log watchers, zone streams and the terminal.
+ */
+export function revokeSocketSessions(target: { accountName: string; sessionId?: string }): void {
+  for (const ws of applicationClients()) {
+    const ended = socketSessions(ws).some(
+      ({ accountName, sessionId }) =>
+        sameAccount(accountName, target.accountName) &&
+        (target.sessionId === undefined || sessionId === target.sessionId),
+    );
+    if (ended) endSocketSession(ws);
+  }
+}
+
+let revalidation: Promise<void> | undefined;
+let revalidationQueued: Promise<void> | undefined;
+
+async function revalidateOnce(): Promise<void> {
+  const sockets = Array.from(applicationClients()).filter(
+    (ws) => ws.readyState === WebSocket.OPEN && socketSessions(ws).length > 0,
+  );
+  if (sockets.length === 0) return;
+
+  const sessions = new Map<string, { accountName: string; sessionId: string }>();
+  for (const ws of sockets) {
+    for (const session of socketSessions(ws)) {
+      sessions.set(`${session.accountName}\0${session.sessionId}`, session);
+    }
+  }
+
+  let active: Set<string>;
+  try {
+    active = await getActiveWebSessionIds([...sessions.values()]);
+  } catch (error) {
+    // Fail closed: an unverifiable session ends; the client reconnects and rehydrates.
+    logger.warn('[WebSocket] principal revalidation failed:', getErrorMessage(error));
+    sockets.forEach(endSocketSession);
+    return;
+  }
+
+  // One permission computation per account, shared by all of its sockets.
+  const permissionsByAccount = new Map<string, Promise<UserPermissions>>();
+  const permissionsFor = (accountName: string) => {
+    let permissions = permissionsByAccount.get(accountName);
+    if (!permissions) {
+      permissions = parseAccountFile(accountName).then((account) =>
+        getUserPermissions(accountName, account.characters),
+      );
+      permissionsByAccount.set(accountName, permissions);
+    }
+    return permissions;
+  };
+
+  await Promise.all(
+    sockets.map(async (ws) => {
+      const state = clientState(ws);
+      if (socketSessions(ws).some(({ sessionId }) => !active.has(sessionId))) {
+        endSocketSession(ws);
+        return;
+      }
+      try {
+        if (state.wsPrincipal) {
+          const { accountName, sessionId } = state.wsPrincipal;
+          state.wsPrincipal = {
+            accountName,
+            sessionId,
+            permissions: await permissionsFor(accountName),
+          };
+        }
+        const terminalOwner = state.terminalAuth?.accountName;
+        if (terminalOwner) {
+          const permissions = await permissionsFor(terminalOwner);
+          if (
+            permissions.role !== 'overlord' &&
+            !permissions.adminPermissions.includes('terminal_access')
+          ) {
+            await closeTerminal(ws);
+          }
+        }
+      } catch (error) {
+        logger.warn('[WebSocket] principal revalidation failed:', getErrorMessage(error));
+        endSocketSession(ws);
+      }
+    }),
+  );
+}
+
+/**
+ * Re-check every socket that acts for a web session: end those whose session is gone and
+ * refresh the permissions of the rest. Concurrent calls share one queued follow-up pass, so a
+ * change made during a pass is always seen. Never rejects.
+ */
+export function revalidateSockets(): Promise<void> {
+  if (!revalidation) {
+    revalidation = revalidateOnce()
+      .catch((error) => {
+        logger.warn('[WebSocket] principal revalidation failed:', getErrorMessage(error));
+      })
+      .finally(() => {
+        revalidation = undefined;
+      });
+    return revalidation;
+  }
+  revalidationQueued ??= revalidation.then(() => {
+    revalidationQueued = undefined;
+    return revalidateSockets();
+  });
+  return revalidationQueued;
 }
 
 export async function authorizeZoneStream(

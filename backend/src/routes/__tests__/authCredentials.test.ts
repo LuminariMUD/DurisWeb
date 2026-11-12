@@ -9,6 +9,9 @@ import { beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals
 const query = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const logError = jest.fn();
 jest.unstable_mockModule('../../db/connection.js', () => ({ pool: { query } }));
+jest.unstable_mockModule('../../realtime/socketAuth.js', () => ({
+  revokeSocketSessions: jest.fn(),
+}));
 jest.unstable_mockModule('bcrypt', () => ({
   default: { compare: async () => true },
 }));

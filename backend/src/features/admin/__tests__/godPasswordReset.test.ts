@@ -20,6 +20,7 @@ const storedName = (accountName: string) =>
 const updateAccountPassword = jest.fn(async (_account: string, _hash: string) => undefined);
 const revokeAllWebSessions = jest.fn(async (_account: string) => 1);
 const cleanupAccountSessions = jest.fn(async (_account: string) => undefined);
+const revokeSocketSessions = jest.fn((_target: { accountName: string }) => undefined);
 const poolQuery = jest.fn(async (_sql: string, _params: unknown[]) => [{}]);
 const searchAccounts = jest.fn(async (_query: string, _limit: number) => [] as string[]);
 const stub = (specifier: string, overrides?: Record<string, unknown>) =>
@@ -52,6 +53,7 @@ stub('../../../services/sessionService.js', {
   revokeAllWebSessions,
 });
 stub('../../../services/terminalService.js', { cleanupAccountSessions });
+stub('../../../realtime/socketAuth.js', { revokeSocketSessions });
 stub('../../../services/accountService.js', {
   parseAccountFile: async (accountName: string) => ({
     accountName: storedName(accountName),
@@ -95,6 +97,7 @@ describe('god password reset', () => {
       expect(revokeAllWebSessions).toHaveBeenCalledWith('Mortal');
       // Terminal session maps are keyed by the exact stored name.
       expect(cleanupAccountSessions).toHaveBeenCalledWith('Mortal');
+      expect(revokeSocketSessions).toHaveBeenCalledWith({ accountName: 'Mortal' });
       expect(poolQuery).toHaveBeenCalledWith(expect.stringContaining('admin_action_log'), [
         'greater',
         'Mortal',

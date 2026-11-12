@@ -95,6 +95,7 @@ export const logStreamHandlers: Record<string, MessageHandler> = {
             );
             return;
           }
+          if (!hasWebSocketPermission(clientState(ws).wsPrincipal, 'view_server_logs')) return;
           sendApplicationMessage(
             ws,
             JSON.stringify({
