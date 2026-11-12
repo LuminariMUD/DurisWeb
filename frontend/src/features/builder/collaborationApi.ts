@@ -13,7 +13,9 @@ export const builderCollaborationApi = {
     limit?: number
     offset?: number
   }): Promise<import('@/types').BuilderNotificationsResponse> {
-    const { data } = await api.get('/api/builder/notifications', { params })
+    const { data } = await api.get('/api/builder/notifications', {
+      params: params && { is_read: params.isRead, limit: params.limit, offset: params.offset },
+    })
     return data
   },
 
@@ -54,17 +56,13 @@ export const builderCollaborationApi = {
     },
   ): Promise<import('@/types').ProcRequest[]> {
     const { data } = await api.get(`/api/builder/zones/${zoneId}/proc-requests`, {
-      params: filters,
+      params: filters && {
+        status: filters.status,
+        entity_type: filters.entityType,
+        assigned_to: filters.assignedTo,
+      },
     })
     return data.procRequests
-  },
-
-  /**
-   * Get single proc request
-   */
-  async getProcRequest(zoneId: string, requestId: number): Promise<import('@/types').ProcRequest> {
-    const { data } = await api.get(`/api/builder/zones/${zoneId}/proc-requests/${requestId}`)
-    return data.request
   },
 
   /**
@@ -75,7 +73,7 @@ export const builderCollaborationApi = {
     request: import('@/types').CreateProcRequest,
   ): Promise<import('@/types').ProcRequest> {
     const { data } = await api.post(`/api/builder/zones/${zoneId}/proc-requests`, request)
-    return data.request
+    return data.procRequest
   },
 
   /**
@@ -86,11 +84,11 @@ export const builderCollaborationApi = {
     requestId: number,
     updates: import('@/types').UpdateProcRequest,
   ): Promise<import('@/types').ProcRequest> {
-    const { data } = await api.patch(
+    const { data } = await api.put(
       `/api/builder/zones/${zoneId}/proc-requests/${requestId}`,
       updates,
     )
-    return data.request
+    return data.procRequest
   },
 
   /**
@@ -102,11 +100,11 @@ export const builderCollaborationApi = {
     status: import('@/types').ProcRequestStatus,
     assignedTo?: string | null,
   ): Promise<import('@/types').ProcRequest> {
-    const { data } = await api.patch(
+    const { data } = await api.put(
       `/api/builder/zones/${zoneId}/proc-requests/${requestId}/status`,
       { status, assignedTo },
     )
-    return data.request
+    return data.procRequest
   },
 
   /**
@@ -114,14 +112,6 @@ export const builderCollaborationApi = {
    */
   async deleteProcRequest(zoneId: string, requestId: number): Promise<void> {
     await api.delete(`/api/builder/zones/${zoneId}/proc-requests/${requestId}`)
-  },
-
-  /**
-   * Get proc requests assigned to current user
-   */
-  async getMyProcRequests(): Promise<import('@/types').ProcRequest[]> {
-    const { data } = await api.get('/api/builder/my-proc-requests')
-    return data.requests
   },
 
   // --- Zone Comments ---
@@ -134,8 +124,9 @@ export const builderCollaborationApi = {
     procRequestId?: number | null,
   ): Promise<import('@/types').ZoneComment[]> {
     const params: Record<string, string> = {}
-    if (procRequestId !== undefined) {
-      params.procRequestId = procRequestId === null ? 'null' : procRequestId.toString()
+    // The backend filters by a proc request ID only; it has no "general only" filter.
+    if (procRequestId != null) {
+      params.proc_request_id = procRequestId.toString()
     }
     const { data } = await api.get(`/api/builder/zones/${zoneId}/comments`, { params })
     return data.comments
@@ -160,7 +151,7 @@ export const builderCollaborationApi = {
     commentId: number,
     updates: import('@/types').UpdateZoneComment,
   ): Promise<import('@/types').ZoneComment> {
-    const { data } = await api.patch(`/api/builder/zones/${zoneId}/comments/${commentId}`, updates)
+    const { data } = await api.put(`/api/builder/zones/${zoneId}/comments/${commentId}`, updates)
     return data.comment
   },
 

@@ -266,6 +266,18 @@ describe('builder child-resource ID validation', () => {
     expect(procRequestService.updateProcRequestStatus.mock.calls[0][3]).toBe(assignedTo);
   });
 
+  it('validates status and entity type on the general proc-request update', async () => {
+    const badStatus = await request(app)
+      .put('/api/builder/zones/zone-a/proc-requests/12')
+      .send({ status: 'bogus' });
+    const badType = await request(app)
+      .put('/api/builder/zones/zone-a/proc-requests/12')
+      .send({ entityType: 'zone' });
+
+    expect([badStatus.status, badType.status]).toEqual([400, 400]);
+    expect(procRequestService.updateProcRequest).not.toHaveBeenCalled();
+  });
+
   it('scopes comment writes to the URL zone and logs nothing for a foreign ID', async () => {
     zoneCommentService.updateComment.mockResolvedValueOnce(null);
 

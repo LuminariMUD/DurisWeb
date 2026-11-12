@@ -154,6 +154,14 @@ builderCollaborationRoutes.get('/zones/:id/proc-requests', async (req: Request, 
   }
 });
 
+const PROC_REQUEST_STATUSES: ProcRequestStatus[] = [
+  'requested',
+  'assigned',
+  'in_progress',
+  'completed',
+];
+const PROC_REQUEST_ENTITY_TYPES = ['mob', 'object', 'room'];
+
 // POST /api/builder/zones/:id/proc-requests - Create proc request
 builderCollaborationRoutes.post('/zones/:id/proc-requests', async (req: Request, res: Response) => {
   try {
@@ -173,7 +181,7 @@ builderCollaborationRoutes.post('/zones/:id/proc-requests', async (req: Request,
 
     const { entityType, vnum, title, description, descriptionHtml } = req.body;
 
-    if (!['mob', 'object', 'room'].includes(entityType)) {
+    if (!PROC_REQUEST_ENTITY_TYPES.includes(entityType)) {
       res.status(400).json({ error: 'Invalid entity type' });
       return;
     }
@@ -262,6 +270,15 @@ builderCollaborationRoutes.put(
         processedDescriptionHtml = result.contentHtml ?? undefined;
       }
 
+      if (req.body.status && !PROC_REQUEST_STATUSES.includes(req.body.status)) {
+        res.status(400).json({ error: 'Invalid status' });
+        return;
+      }
+      if (req.body.entityType && !PROC_REQUEST_ENTITY_TYPES.includes(req.body.entityType)) {
+        res.status(400).json({ error: 'Invalid entity type' });
+        return;
+      }
+
       const data: UpdateProcRequest = {};
       if (req.body.entityType) data.entityType = req.body.entityType;
       if (req.body.vnum !== undefined) data.vnum = parseInt(req.body.vnum, 10);
@@ -339,13 +356,7 @@ builderCollaborationRoutes.put(
         return;
       }
 
-      const validStatuses: ProcRequestStatus[] = [
-        'requested',
-        'assigned',
-        'in_progress',
-        'completed',
-      ];
-      if (!validStatuses.includes(status)) {
+      if (!PROC_REQUEST_STATUSES.includes(status)) {
         res.status(400).json({ error: 'Invalid status' });
         return;
       }
