@@ -9,6 +9,23 @@ from sync_client_changelog import main, parse_changelog
 
 
 class ClientChangelogImportTests(unittest.TestCase):
+    def test_preserves_nested_release_notes_and_following_items(self):
+        entry = parse_changelog(
+            "## 1.0\n\n- Sound settings.\n"
+            "  - Use `ui sound on`.\n  - Keep <text> literal.\n"
+            "- Other changes.\n\nA final paragraph.\n",
+            "a" * 40,
+            set(),
+        )[0]
+        self.assertEqual(entry["content"],
+            "<ul>\n<li>Sound settings.\n<ul>\n"
+            "<li>Use <code>ui sound on</code>.</li>\n"
+            "<li>Keep &lt;text&gt; literal.</li>\n</ul></li>\n"
+            "<li>Other changes.</li>\n</ul>\n<p>A final paragraph.</p>")
+        for body in ["  - Orphan.\n", "- Parent.\n    - Skipped level.\n"]:
+            with self.subTest(body=body), self.assertRaises(ValueError):
+                parse_changelog("## 1.0\n\n" + body, "a" * 40, set())
+
     def test_preserves_all_history_and_distinguishes_published_packages(self):
         entries = parse_changelog(
             "# Changelog\n\n## 2.0.0 - 2026-10-22\n\n"

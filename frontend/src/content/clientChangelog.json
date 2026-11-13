@@ -1,7 +1,37 @@
 {
-  "sourceSha": "73c58abbc4c04a699fe62206b7cf9a3faee14885",
-  "sourceUrl": "https://github.com/LuminariMUD/duris-client/blob/73c58abbc4c04a699fe62206b7cf9a3faee14885/CHANGELOG.md",
+  "sourceSha": "1921a7b4f7e23368fcdfdf48a29eddb99f15ce83",
+  "sourceUrl": "https://github.com/LuminariMUD/duris-client/blob/1921a7b4f7e23368fcdfdf48a29eddb99f15ce83/CHANGELOG.md",
   "entries": [
+    {
+      "version": "2.12.0",
+      "date": "2026-11-13",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.12.0",
+      "content": "<ul>\n<li>Correlate complete chat lines and wrapped rows, preserve ordinary or older output, and keep search highlights aligned after deletion. Pending chat gags expire by time, support bursts, and clear on toggle/session changes.</li>\n<li>Hovering over the room name shows the room number, zone, terrain and coordinates the game sends, for example <code>Room 90010 · zone 9001 · Forest · (3, -2, 0)</code>. In the wilderness the game sends only the terrain, so only the terrain is shown. <code>ui debug</code> also lists them.</li>\n<li>New <code>mapper legend</code> shows what each wilderness map symbol means, in your colours. It shows the game&#x27;s default symbols; if you changed them with the game&#x27;s <code>glyphs</code> command, the map shows yours instead.</li>\n<li>New <code>ui set chatGag on</code> hides chat lines in GAME OUTPUT, because the CHAT tabs already show them. It is off by default. It hides only the one line that matches the sender and text of each chat message, whichever of the two arrives first. The line stays in Mudlet&#x27;s own window and log.</li>\n</ul>"
+    },
+    {
+      "version": "2.11.0",
+      "date": "2026-11-13",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.11.0",
+      "content": "<ul>\n<li>Keep low-vitals alerts armed while sound is disabled or on cooldown, and reset their latches for each character session.</li>\n<li>New sound alerts, off until you type <code>ui sound on</code>.\n<ul>\n<li>Sounds play for incoming tells, low health (below 25%), low movement (below 20%) and alert banners such as sanctuary fading or being scried.</li>\n<li>Chat channels can also make a sound (<code>ui sound chat on</code>). They only do so when the message lands in a tab you aren&#x27;t reading.</li>\n<li>A low-health or low-movement sound plays once and doesn&#x27;t repeat until you recover past the reset level (40% health, 35% movement).</li>\n<li><code>ui sound</code> lists the settings. You can change the volume (<code>ui sound volume 30</code>), turn single sounds on or off (<code>ui sound tell off</code>), set your own levels (<code>ui sound hp 30 50</code>), test a sound (<code>ui sound test tell</code>) and stop playback (<code>ui sound stop</code>). Settings are saved.</li>\n<li>The sounds are new, generated tones that ship with the package.</li>\n</ul></li>\n<li><code>ui help</code> describes <code>ui debug</code> correctly.</li>\n</ul>"
+    },
+    {
+      "version": "2.10.0",
+      "date": "2026-11-13",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.10.0",
+      "content": "<ul>\n<li>While you cast, the PREP box in VITALS shows the spell and its remaining <code>*</code> steps, for example <code>fireball ***</code>. It then shows <code>OK</code> or <code>ABORTED</code> for a few seconds before switching back to the preparation timer. The spell name comes from the game&#x27;s <code>Casting:</code> lines, or from your <code>cast &#x27;&lt;spell&gt;&#x27;</code> command when the game doesn&#x27;t print one. A cast that never finishes clears itself after 12 seconds.</li>\n</ul>"
+    },
+    {
+      "version": "2.9.0",
+      "date": "2026-11-13",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.9.0",
+      "content": "<ul>\n<li>Include mirror/scan timers, capture/routing triggers and search keys in the diagnostic resource totals.</li>\n<li><code>ui debug</code> now prints a full diagnostic report to paste into bug reports. It shows the package, Mudlet and OS versions, the profile, the window size and UI state, the connection, whether GMCP is enabled, the server session and the features the server reports. It also shows how long ago each GMCP message last arrived, how many triggers, aliases and timers the client is running, and whether the frame artwork was found.</li>\n</ul>"
+    },
+    {
+      "version": "2.8.0",
+      "date": "2026-11-13",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.8.0",
+      "content": "<ul>\n<li>Keep messages unread while CHAT is hidden, minimized or covered, including its selected tab. Revealing CHAT clears only the tab actually shown.</li>\n<li>Chat tabs show how many new messages arrived while you were reading another tab, for example <code>NCHAT 3</code>, in gold. Opening the tab clears it. TELLS shows the number of unread private messages.</li>\n<li>GROUP marks the leader with a crown (♔). Hovering over a name shows the member&#x27;s rank (leader, front or back), level and class.</li>\n<li>Internal cleanup with no visible change: removed unused mapper code and renamed variables that hid other names.</li>\n</ul>"
+    },
     {
       "version": "2.7.0",
       "date": "2026-11-11",
@@ -96,7 +126,7 @@
       "version": "2.2.0",
       "date": "2026-10-23",
       "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.2.0",
-      "content": "<ul>\n<li>Show bridge weight/load, ordered navigation, display/raw stamina, explicit target, slot condition/timers/destruction, contact coordinates and both arc meanings when supplied by the server.</li>\n<li>Associate ship snapshots by runtime vessel key, preserve safe legacy fallback, handle duplicate docked designations and keep server names literal.</li>\n</ul>\n<p>Notable changes to the Duris Client Mudlet package. Versions follow <a href=\"https://semver.org\">Semantic Versioning</a> (<code>MAJOR.MINOR.PATCH</code>); see <a href=\"https://github.com/LuminariMUD/duris-client/blob/73c58abbc4c04a699fe62206b7cf9a3faee14885/docs/RELEASING.md\">docs/RELEASING.md</a> for what each part means here. Each version heading must match <code>VERSION</code>; the release workflow copies that section into the GitHub Release notes.</p>"
+      "content": "<ul>\n<li>Show bridge weight/load, ordered navigation, display/raw stamina, explicit target, slot condition/timers/destruction, contact coordinates and both arc meanings when supplied by the server.</li>\n<li>Associate ship snapshots by runtime vessel key, preserve safe legacy fallback, handle duplicate docked designations and keep server names literal.</li>\n</ul>\n<p>Notable changes to the Duris Client Mudlet package. Versions follow <a href=\"https://semver.org\">Semantic Versioning</a> (<code>MAJOR.MINOR.PATCH</code>); see <a href=\"https://github.com/LuminariMUD/duris-client/blob/1921a7b4f7e23368fcdfdf48a29eddb99f15ce83/docs/RELEASING.md\">docs/RELEASING.md</a> for what each part means here. Each version heading must match <code>VERSION</code>; the release workflow copies that section into the GitHub Release notes.</p>"
     },
     {
       "version": "2.1.2",

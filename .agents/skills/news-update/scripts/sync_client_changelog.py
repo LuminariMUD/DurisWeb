@@ -50,20 +50,32 @@ def render_inline(text, source_sha):
 def render_body(lines, source_sha):
     blocks = []
     paragraph = []
-    in_list = False
-    for line in [*lines, ""]:
+
+    def render_list(start, indent):
+        items = ["<ul>"]
+        position = start
+        prefix = " " * indent + "- "
+        while position < len(lines) and lines[position].startswith(prefix):
+            item = "<li>" + render_inline(lines[position][len(prefix):], source_sha)
+            position += 1
+            if position < len(lines) and lines[position].startswith(" " * (indent + 2) + "- "):
+                nested, position = render_list(position, indent + 2)
+                item += "\n" + nested
+            items.append(item + "</li>")
+        items.append("</ul>")
+        return "\n".join(items), position
+
+    position = 0
+    while position < len(lines):
+        line = lines[position]
         if line.startswith("- "):
             if paragraph:
                 blocks.append(f"<p>{render_inline(' '.join(paragraph), source_sha)}</p>")
                 paragraph = []
-            if not in_list:
-                blocks.append("<ul>")
-                in_list = True
-            blocks.append(f"<li>{render_inline(line[2:], source_sha)}</li>")
+            rendered, position = render_list(position, 0)
+            blocks.append(rendered)
+            continue
         else:
-            if in_list:
-                blocks.append("</ul>")
-                in_list = False
             if not line.strip():
                 if paragraph:
                     blocks.append(f"<p>{render_inline(' '.join(paragraph), source_sha)}</p>")
@@ -72,6 +84,9 @@ def render_body(lines, source_sha):
                 if line.startswith("#") or line[:1].isspace():
                     raise ValueError("Unsupported changelog formatting; review before importing")
                 paragraph.append(line)
+        position += 1
+    if paragraph:
+        blocks.append(f"<p>{render_inline(' '.join(paragraph), source_sha)}</p>")
     return "\n".join(blocks)
 
 
