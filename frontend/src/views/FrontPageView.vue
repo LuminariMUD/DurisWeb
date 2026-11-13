@@ -196,9 +196,10 @@ function releasePointer(event: PointerEvent) {
   setLean(event.currentTarget as HTMLElement, 0, 0)
 }
 
-// Sections below the hero settle into place once, as they are first scrolled into view. The
-// threshold is a share of the element with no root margin, so the last element on the page can
-// always reach it.
+// Sections below the hero settle into place once, as they are first scrolled into view. A
+// pending element sits below its resting place, and the observer measures it there, so the
+// trigger is the first visible pixel: any share of the element could be out of reach for the
+// last one on the page.
 const revealObserver =
   typeof IntersectionObserver === 'undefined'
     ? null
@@ -210,7 +211,7 @@ const revealObserver =
             observer.unobserve(entry.target)
           }
         },
-        { threshold: 0.15 },
+        { threshold: 0 },
       )
 const vReveal: ObjectDirective<HTMLElement> = {
   beforeMount(el) {
@@ -349,7 +350,7 @@ onBeforeUnmount(() => {
             <template v-if="isDefaultTitle">
               <span class="title-line arrive" style="--i: 0">A world </span>
               <span class="title-line arrive" style="--i: 1">written in </span>
-              <span class="title-line arrive" style="--i: 2"><em data-text="blood.">blood.</em></span>
+              <span class="title-line arrive" style="--i: 2"><em>blood.</em></span>
             </template>
             <span v-else class="title-line arrive" style="--i: 0">{{ heroTitle }}</span>
           </h1>
@@ -673,26 +674,31 @@ onBeforeUnmount(() => {
   letter-spacing: -0.045em;
   margin: 0;
 }
+/*
+ * The accent word answers the eclipse: it brightens and gathers a soft halo in time with the
+ * corona. Brightness and opacity both stay on the compositor, and neither needs a second copy of
+ * the word, which page translation would leave behind in the original language.
+ */
 .hero-title em {
   position: relative;
   display: inline-block;
   color: var(--red);
   font-weight: 400;
-}
-/*
- * A brighter, glowing copy of the accent word, faded over it in time with the corona. Opacity
- * stays on the compositor, which an animated glow on the word itself would not. The empty
- * alternative text keeps the copy out of the accessibility tree; without that syntax there is
- * simply no copy.
- */
-.hero-title em::after {
-  content: attr(data-text) / '';
-  position: absolute;
-  inset: 0;
-  color: #ff7a52;
-  text-shadow: 0 0 0.2em rgb(255 92 40 / 0.55);
-  opacity: 0;
   animation: blood-pulse 9s ease-in-out infinite;
+}
+.hero-title em::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: -0.04em -0.3em -0.1em;
+  background: radial-gradient(
+    closest-side,
+    rgb(255 92 40 / 0.2),
+    rgb(255 92 40 / 0.09) 55%,
+    transparent
+  );
+  opacity: 0;
+  animation: blood-halo 9s ease-in-out infinite;
 }
 .hero-title--custom {
   font-size: clamp(3.6rem, 6.8vw, 7rem);
@@ -824,22 +830,23 @@ button:hover {
   flex-direction: column;
   align-items: flex-start;
 }
-/* Rules are drawn rather than bordered so they can be ruled in as the pathway arrives. */
+/*
+ * The rules sit on pseudo-elements so they can be ruled in as the pathway arrives. They stay
+ * borders, not backgrounds, because forced-colors mode keeps borders and paints over backgrounds.
+ */
 .pathway::before,
 .pathway + .pathway::after {
   content: '';
   position: absolute;
-  background: #838476;
 }
 .pathway::before {
   inset: 0 0 auto;
-  height: 1px;
+  border-top: 1px solid #838476;
   transform-origin: left;
 }
 .pathway + .pathway::after {
   inset: 0 auto 0 0;
-  width: 1px;
-  background: #999a8d;
+  border-left: 1px solid #999a8d;
   transform-origin: top;
 }
 .pathway:first-child {
@@ -963,57 +970,64 @@ button:hover {
 
 /*
  * Sections settle in once, when the reveal directive first sees them. Every rule is scoped to a
- * page that is in motion, so pausing or preferring reduced motion shows the final state at once.
+ * page that is in motion, so pausing or preferring reduced motion shows the final state at once,
+ * and to the screen, so a printed page is complete. A section that holds keyboard focus is shown
+ * immediately: focus must never land on something still waiting to appear.
  */
-.duris-home:not(.motion-paused) [data-reveal] {
-  --reveal-delay: calc(var(--i, 0) * 120ms);
-}
-.duris-home:not(.motion-paused) [data-reveal]:not(.pathway) {
-  transition:
-    opacity 1s var(--ease-arrive) var(--reveal-delay),
-    translate 1s var(--ease-arrive) var(--reveal-delay);
-}
-.duris-home:not(.motion-paused) [data-reveal='pending']:not(.pathway) {
-  opacity: 0;
-  translate: 0 1.75rem;
-}
-.duris-home:not(.motion-paused) .pathway > * {
-  transition:
-    opacity 0.9s var(--ease-arrive) calc(var(--reveal-delay) + var(--step, 0) * 80ms + 120ms),
-    translate 0.9s var(--ease-arrive) calc(var(--reveal-delay) + var(--step, 0) * 80ms + 120ms);
-}
-.pathway > :nth-child(2) {
-  --step: 1;
-}
-.pathway > :nth-child(3) {
-  --step: 2;
-}
-.pathway > :nth-child(4) {
-  --step: 3;
-}
-.duris-home:not(.motion-paused) .pathway[data-reveal='pending'] > * {
-  opacity: 0;
-  translate: 0 1.25rem;
-}
-.duris-home:not(.motion-paused) .pathway::before {
-  transition: scale 1.2s var(--ease-arrive) var(--reveal-delay);
-}
-.duris-home:not(.motion-paused) .pathway + .pathway::after {
-  transition: scale 1.2s var(--ease-arrive) calc(var(--reveal-delay) + 180ms);
-}
-.duris-home:not(.motion-paused) .pathway[data-reveal='pending']::before {
-  scale: 0 1;
-}
-.duris-home:not(.motion-paused) .pathway[data-reveal='pending']::after {
-  scale: 1 0;
-}
-/* The icons are inked in; every Lucide stroke used here is shorter than the dash. */
-.duris-home:not(.motion-paused) .pathway-index :deep(svg *) {
-  stroke-dasharray: 120;
-  transition: stroke-dashoffset 1.7s ease calc(var(--reveal-delay) + 320ms);
-}
-.duris-home:not(.motion-paused) .pathway[data-reveal='pending'] .pathway-index :deep(svg *) {
-  stroke-dashoffset: 120;
+@media screen {
+  .duris-home:not(.motion-paused) [data-reveal] {
+    --reveal-delay: calc(var(--i, 0) * 120ms);
+  }
+  .duris-home:not(.motion-paused) [data-reveal]:not(.pathway):not(:focus-within) {
+    transition:
+      opacity 1s var(--ease-arrive) var(--reveal-delay),
+      translate 1s var(--ease-arrive) var(--reveal-delay);
+  }
+  .duris-home:not(.motion-paused) [data-reveal='pending']:not(.pathway):not(:focus-within) {
+    opacity: 0;
+    translate: 0 1.75rem;
+  }
+  .duris-home:not(.motion-paused) .pathway:not(:focus-within) > * {
+    transition:
+      opacity 0.9s var(--ease-arrive) calc(var(--reveal-delay) + var(--step, 0) * 80ms + 120ms),
+      translate 0.9s var(--ease-arrive) calc(var(--reveal-delay) + var(--step, 0) * 80ms + 120ms);
+  }
+  .pathway > :nth-child(2) {
+    --step: 1;
+  }
+  .pathway > :nth-child(3) {
+    --step: 2;
+  }
+  .pathway > :nth-child(4) {
+    --step: 3;
+  }
+  .duris-home:not(.motion-paused) .pathway[data-reveal='pending']:not(:focus-within) > * {
+    opacity: 0;
+    translate: 0 1.25rem;
+  }
+  .duris-home:not(.motion-paused) .pathway::before {
+    transition: scale 1.2s var(--ease-arrive) var(--reveal-delay);
+  }
+  .duris-home:not(.motion-paused) .pathway + .pathway::after {
+    transition: scale 1.2s var(--ease-arrive) calc(var(--reveal-delay) + 180ms);
+  }
+  .duris-home:not(.motion-paused) .pathway[data-reveal='pending']::before {
+    scale: 0 1;
+  }
+  .duris-home:not(.motion-paused) .pathway[data-reveal='pending']::after {
+    scale: 1 0;
+  }
+  /*
+   * The icons are inked in by growing the dash until the gap is gone. A zero gap is a solid
+   * stroke whatever the path's length, so a longer icon still finishes whole.
+   */
+  .duris-home:not(.motion-paused) .pathway-index :deep(svg *) {
+    stroke-dasharray: 120 0;
+    transition: stroke-dasharray 1.7s ease calc(var(--reveal-delay) + 320ms);
+  }
+  .duris-home:not(.motion-paused) .pathway[data-reveal='pending'] .pathway-index :deep(svg *) {
+    stroke-dasharray: 0 120;
+  }
 }
 
 @keyframes world-drift {
@@ -1073,8 +1087,23 @@ button:hover {
     scale: 1.14;
   }
 }
-/* Keeps time with corona-breath, so the word answers the eclipse. */
+/* Both keep time with corona-breath. */
 @keyframes blood-pulse {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  42% {
+    filter: brightness(1.28);
+  }
+  58% {
+    filter: brightness(1.14);
+  }
+  70% {
+    filter: brightness(1.22);
+  }
+}
+@keyframes blood-halo {
   0%,
   100% {
     opacity: 0;
@@ -1189,8 +1218,10 @@ button:hover {
 /* Pause control, and rest while the hero is out of view. Arrivals always finish. */
 .motion-paused :is(.corona-breath, .corona-plasma, .corona-bead, .mist, .ember, .explore-link svg),
 .hero--offstage :is(.corona-breath, .corona-plasma, .corona-bead, .mist, .ember, .explore-link svg),
-.motion-paused .hero-title em::after,
-.hero--offstage .hero-title em::after {
+.motion-paused .hero-title em,
+.hero--offstage .hero-title em,
+.motion-paused .hero-title em::before,
+.hero--offstage .hero-title em::before {
   animation-play-state: paused;
 }
 .motion-paused .hero-scene,
@@ -1332,7 +1363,7 @@ button:hover {
     padding: 2rem 0;
   }
   .pathway + .pathway::before {
-    background: #999a8d;
+    border-top-color: #999a8d;
   }
   .pathway + .pathway::after {
     display: none;
@@ -1381,7 +1412,8 @@ button:hover {
   .ember,
   .hero-veil,
   .arrive,
-  .hero-title em::after,
+  .hero-title em,
+  .hero-title em::before,
   .explore-link svg,
   .command-caret {
     animation: none;

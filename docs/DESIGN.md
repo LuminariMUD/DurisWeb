@@ -295,8 +295,10 @@ appearance:
   on the compositor. A looping shadow, a filter that moves pixels such as blur or
   drop-shadow, or a layout property repaints on the main thread for as long as
   the page is open. Content revealed on scroll stays visible when the browser
-  cannot observe scrolling, and its trigger must be reachable by the last element
-  on the page.
+  cannot observe scrolling, in print, and in whichever section holds keyboard
+  focus, and its trigger must be reachable by the last element on the page.
+  Decorative copies of text do not survive page translation; brighten or shade
+  the real text instead. Draw rules as borders, which forced-colors mode keeps.
 - Availability notices use a dismissible dialog and a persistent Details
   banner. Retry rechecks availability and configuration without replaying the
   user's failed action. The standalone outage page has no external asset
