@@ -213,6 +213,15 @@ priority. Headings, navigation, and controls remain HTML. The separate root
 README banner has its own [asset provenance](assets/readme-banner.md), including
 its generation prompt; it is atmospheric artwork, not a gameplay screenshot.
 
+The hero presents that artwork as a layered scene: a corona that breathes and
+turns around the eclipse, two banks of drifting mist, rising embers, and a slow
+push toward the eclipse. The corona lifts light the painting already has, so it
+is measured against the artwork rather than placed by eye. The
+[eclipse asset record](../frontend/src/assets/eclipse/README.md) holds those
+measurements and the provenance of the procedural mist texture. Measure them
+again if the artwork is replaced or cropped. An operator-supplied hero image has
+no registration, so it keeps the mist, embers, and drift without the corona.
+
 The homepage preserves operator hero visibility, custom title/subtitle, custom
 image URL, and sanitized CMS content. Only the exact legacy title, subtitle,
 and editor placeholder receive special treatment. Image-only and widget-only
@@ -273,11 +282,21 @@ appearance:
 - Use native form submission. The login form is the existing example: account
   and password fields share one form and appropriate autocomplete values;
   Enter and the Login button use the same handler; Back to Home only navigates.
-- Keep motion optional. The hero's pause control and
-  `prefers-reduced-motion` both stop its animation. Explore moves focus to the
-  world section and avoids smooth scrolling when motion is paused or reduced.
+- Keep motion optional. The homepage's pause control and
+  `prefers-reduced-motion` both stop its ambient loops, pointer depth, and
+  scroll parallax, and show scroll-revealed sections in their final state. An
+  arrival that has already started is allowed to finish when paused. Ambient
+  loops also rest while the hero is scrolled out of view. Explore moves focus to
+  the world section and avoids smooth scrolling when motion is paused or reduced.
   Shared brand transitions also respect reduced motion. Check other animated
   components individually; this is not a global animation-disable mechanism.
+- Keep motion quiet and cheap. A continuous loop animates only `opacity` and the
+  transform properties (`transform`, `translate`, `rotate`, `scale`), which stay
+  on the compositor. A looping shadow, a filter that moves pixels such as blur or
+  drop-shadow, or a layout property repaints on the main thread for as long as
+  the page is open. Content revealed on scroll stays visible when the browser
+  cannot observe scrolling, and its trigger must be reachable by the last element
+  on the page.
 - Availability notices use a dismissible dialog and a persistent Details
   banner. Retry rechecks availability and configuration without replaying the
   user's failed action. The standalone outage page has no external asset
@@ -593,6 +612,7 @@ The links are part of this guide; avoid copying their full contracts here.
 | [Brand exports](../frontend/src/components/brand/index.ts) and [button variants](../frontend/src/components/ui/button/index.ts) | Component implementations and exact styling APIs. |
 | [`App.vue`](../frontend/src/App.vue) and [router](../frontend/src/router/index.ts) | Scroll ownership, navigation, gutter, and pop-out layout behavior. |
 | [`FrontPageView.vue`](../frontend/src/views/FrontPageView.vue) | Editorial composition, responsive rules, CMS mounting, and hero motion. |
+| [Eclipse asset record](../frontend/src/assets/eclipse/README.md) | Eclipse registration measurements and the mist texture's generation script. |
 | [`chartTheme.ts`](../frontend/src/utils/chartTheme.ts) | Canvas color values, faction mapping, and series/heat helpers. |
 | [Palette guard](../frontend/scripts/check-palette-literals.sh) | Exact scan scope and game-color exemptions. |
 | [Chat colorization](CHAT-COLORIZATION.md) | Recipient presentation protocol, palette IDs, escaping, fallback, and history behavior. |

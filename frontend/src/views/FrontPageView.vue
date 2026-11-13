@@ -1,10 +1,10 @@
 <script setup lang="ts">
 // Design and CMS contract: [Design guide](../../../docs/DESIGN.md#homepage-assets-and-configuration).
-import { computed, createApp, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, createApp, onBeforeUnmount, ref, watch, type ObjectDirective } from 'vue'
 import DOMPurify from 'dompurify'
 import { ArrowDown, ArrowUpRight, Compass, Flag, Pause, Play, Swords } from '@lucide/vue'
 import { RouterLink } from 'vue-router'
-import { usePreferredReducedMotion } from '@vueuse/core'
+import { useIntersectionObserver, usePreferredReducedMotion } from '@vueuse/core'
 import { useHead } from '@unhead/vue'
 import defaultHeroImage from '@/assets/eclipse/duris-eclipse.webp'
 import { BrandActionLink, BrandTextLink, DisplayHeading, IndexLabel } from '@/components/brand'
@@ -58,6 +58,8 @@ const heroSubtitle = computed(() =>
     : frontPageHeroSubtitle.value,
 )
 const heroImage = computed(() => frontPageHeroImageUrl.value || defaultHeroImage)
+// The corona is registered to the default artwork's eclipse; other images get atmosphere only.
+const hasCustomArt = computed(() => frontPageHeroImageUrl.value !== '')
 
 const sanitizedContent = computed(() =>
   DOMPurify.sanitize(frontPageContent.value, {
@@ -121,18 +123,106 @@ const hasEditorialContent = computed(() => {
   return hasMedia || (plainText.length > 0 && plainText !== LEGACY_FRONT_PAGE_CONTENT)
 })
 
-const ashParticles = [
-  { left: '7%', delay: '-3s', duration: '15s', size: '2px' },
-  { left: '14%', delay: '-9s', duration: '19s', size: '1px' },
-  { left: '28%', delay: '-6s', duration: '17s', size: '2px' },
-  { left: '41%', delay: '-12s', duration: '21s', size: '1px' },
-  { left: '52%', delay: '-5s', duration: '16s', size: '2px' },
-  { left: '61%', delay: '-14s', duration: '23s', size: '1px' },
-  { left: '69%', delay: '-8s', duration: '18s', size: '2px' },
-  { left: '76%', delay: '-1s', duration: '20s', size: '1px' },
-  { left: '84%', delay: '-11s', duration: '17s', size: '2px' },
-  { left: '92%', delay: '-4s', duration: '22s', size: '1px' },
-] as const
+// Embers: x (% of stage), size (px), seconds per ascent, start offset (s), rise (% of stage
+// height), leftward wind (rem), peak opacity. `near` embers are large, soft and close to the eye.
+const embers = (
+  [
+    [5, 2, 21, -3, 72, 4, 0.75],
+    [12, 3, 17, -11, 88, 6, 0.9],
+    [19, 2, 23, -7, 64, 3, 0.7],
+    [26, 3, 19, -15, 96, 7, 0.8],
+    [33, 3, 16, -2, 80, 5, 0.95],
+    [40, 2, 22, -18, 70, 4, 0.7],
+    [46, 4, 18, -9, 92, 8, 0.85],
+    [52, 3, 20, -5, 84, 5, 0.8],
+    [57, 3, 15, -12, 76, 6, 1],
+    [62, 2, 24, -20, 100, 7, 0.7],
+    [67, 4, 18, -1, 68, 4, 0.9],
+    [72, 2, 21, -14, 90, 6, 0.75],
+    [77, 4, 17, -6, 82, 8, 0.85],
+    [82, 3, 19, -16, 74, 5, 0.75],
+    [87, 3, 22, -10, 98, 7, 0.95],
+    [92, 2, 16, -4, 66, 3, 0.8],
+    [97, 3, 20, -13, 86, 9, 0.85],
+    [36, 9, 13, -8, 112, 14, 0.3, true],
+    [70, 7, 15, -3, 108, 12, 0.34, true],
+    [90, 10, 12, -10, 116, 16, 0.26, true],
+  ] as const
+).map(([x, size, time, delay, rise, wind, peak, near = false]) => ({
+  near,
+  style: {
+    '--x': `${x}%`,
+    '--s': `${size}px`,
+    '--t': `${time}s`,
+    '--d': `${delay}s`,
+    '--rise': `${rise}cqh`,
+    '--wind': `${-wind}rem`,
+    '--o': peak,
+  },
+}))
+
+// Ambient loops rest while the hero is scrolled out of view.
+const heroRef = ref<HTMLElement | null>(null)
+const heroOffstage = ref(false)
+useIntersectionObserver(heroRef, (entries) => {
+  const entry = entries.at(-1)
+  if (entry) heroOffstage.value = !entry.isIntersecting
+})
+
+// Depth on a fine pointer: the layers lean a few pixels away from the cursor.
+let pointerFrame = 0
+function setLean(hero: HTMLElement, x: number, y: number) {
+  hero.style.setProperty('--px', x.toFixed(3))
+  hero.style.setProperty('--py', y.toFixed(3))
+}
+function trackPointer(event: PointerEvent) {
+  if (event.pointerType !== 'mouse' || isMotionPaused.value || pointerFrame) return
+  const hero = event.currentTarget as HTMLElement
+  const { clientX, clientY } = event
+  pointerFrame = requestAnimationFrame(() => {
+    pointerFrame = 0
+    const box = hero.getBoundingClientRect()
+    if (box.width === 0 || box.height === 0) return
+    setLean(
+      hero,
+      ((clientX - box.left) / box.width) * 2 - 1,
+      ((clientY - box.top) / box.height) * 2 - 1,
+    )
+  })
+}
+function releasePointer(event: PointerEvent) {
+  cancelAnimationFrame(pointerFrame)
+  pointerFrame = 0
+  setLean(event.currentTarget as HTMLElement, 0, 0)
+}
+
+// Sections below the hero settle into place once, as they are first scrolled into view. The
+// threshold is a share of the element with no root margin, so the last element on the page can
+// always reach it.
+const revealObserver =
+  typeof IntersectionObserver === 'undefined'
+    ? null
+    : new IntersectionObserver(
+        (entries, observer) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue
+            ;(entry.target as HTMLElement).dataset.reveal = 'shown'
+            observer.unobserve(entry.target)
+          }
+        },
+        { threshold: 0.15 },
+      )
+const vReveal: ObjectDirective<HTMLElement> = {
+  beforeMount(el) {
+    if (revealObserver) el.dataset.reveal = 'pending'
+  },
+  mounted(el) {
+    revealObserver?.observe(el)
+  },
+  unmounted(el) {
+    revealObserver?.unobserve(el)
+  },
+}
 
 function applyColumnStyles() {
   if (!contentRef.value) return
@@ -199,6 +289,8 @@ watch(
 onBeforeUnmount(() => {
   carouselApps.value.forEach((app) => app.unmount())
   widgetApps.value.forEach((app) => app.unmount())
+  cancelAnimationFrame(pointerFrame)
+  revealObserver?.disconnect()
 })
 </script>
 
@@ -208,41 +300,65 @@ onBeforeUnmount(() => {
     {{ error }}
   </div>
   <div v-else class="duris-home" :class="{ 'motion-paused': isMotionPaused }">
-    <section v-if="frontPageHeroEnabled" class="hero" aria-labelledby="duris-home-title">
-      <img
-        class="hero-art"
-        :src="heroImage"
-        alt=""
-        width="1672"
-        height="941"
-        fetchpriority="high"
-      />
-      <div class="ash-field" aria-hidden="true">
-        <span
-          v-for="(particle, index) in ashParticles"
-          :key="index"
-          class="ash"
-          :style="{
-            left: particle.left,
-            animationDelay: particle.delay,
-            animationDuration: particle.duration,
-            width: particle.size,
-            height: particle.size,
-          }"
-        />
+    <section
+      v-if="frontPageHeroEnabled"
+      ref="heroRef"
+      class="hero"
+      :class="{ 'hero--offstage': heroOffstage }"
+      aria-labelledby="duris-home-title"
+      @pointermove="trackPointer"
+      @pointerleave="releasePointer"
+    >
+      <div class="hero-stage" aria-hidden="true">
+        <div class="hero-scene" :class="{ 'hero-scene--custom': hasCustomArt }">
+          <img
+            class="hero-art"
+            :src="heroImage"
+            alt=""
+            width="1672"
+            height="941"
+            fetchpriority="high"
+          />
+          <div v-if="!hasCustomArt" class="corona">
+            <div class="corona-ring">
+              <span class="corona-breath" />
+              <span class="corona-plasma" />
+              <span class="corona-plasma corona-plasma--counter" />
+              <span class="corona-bead" />
+              <span class="corona-ignite" />
+            </div>
+          </div>
+        </div>
+        <span class="mist" />
+        <span class="mist mist--near" />
+        <span class="hero-shade" />
+        <div class="ember-field">
+          <span
+            v-for="(ember, index) in embers"
+            :key="index"
+            class="ember"
+            :class="{ 'ember--near': ember.near }"
+            :style="ember.style"
+          />
+        </div>
+        <span class="hero-veil" />
       </div>
       <div class="hero-inner">
         <div class="hero-copy">
           <h1 id="duris-home-title" class="hero-title" :class="{ 'hero-title--custom': !isDefaultTitle }">
-            <template v-if="isDefaultTitle">A world<br />written in<br /><em>blood.</em></template>
-            <template v-else>{{ heroTitle }}</template>
+            <template v-if="isDefaultTitle">
+              <span class="title-line arrive" style="--i: 0">A world </span>
+              <span class="title-line arrive" style="--i: 1">written in </span>
+              <span class="title-line arrive" style="--i: 2"><em data-text="blood.">blood.</em></span>
+            </template>
+            <span v-else class="title-line arrive" style="--i: 0">{{ heroTitle }}</span>
           </h1>
-          <p class="hero-subtitle">{{ heroSubtitle }}</p>
-          <div class="hero-actions">
+          <p class="hero-subtitle arrive" style="--i: 3">{{ heroSubtitle }}</p>
+          <div class="hero-actions arrive" style="--i: 4">
             <BrandActionLink to="/play">Enter the world</BrandActionLink>
             <BrandTextLink to="/news">News &amp; Updates</BrandTextLink>
           </div>
-          <p class="play-note">Free to play. Played in your browser.</p>
+          <p class="play-note arrive" style="--i: 5">Free to play. Played in your browser.</p>
         </div>
       </div>
       <div class="hero-rail">
@@ -273,23 +389,23 @@ onBeforeUnmount(() => {
     <section id="world" ref="worldRef" class="world-section" aria-labelledby="world-heading" tabindex="-1">
       <div class="world-inner">
         <div class="world-intro">
-          <DisplayHeading id="world-heading" :level="2" size="none">The world is text.<br /><em>The stakes are real.</em></DisplayHeading>
-          <p>No quest marker can tell you who to trust. Learn the lands, follow the rivalries, and find the people who will stand beside you.</p>
+          <DisplayHeading id="world-heading" v-reveal :level="2" size="none">The world is text.<br /><em>The stakes are real.</em></DisplayHeading>
+          <p v-reveal style="--i: 1">No quest marker can tell you who to trust. Learn the lands, follow the rivalries, and find the people who will stand beside you.</p>
         </div>
         <div class="pathways">
-          <article class="pathway">
+          <article v-reveal class="pathway" style="--i: 0">
             <div class="pathway-index"><span>01 / Explore</span><Compass aria-hidden="true" /></div>
             <h3>Know the world.</h3>
             <p>Every zone has a story. Every path has a price. Start with the map.</p>
             <RouterLink to="/wiki/map" class="pathway-link"><span>Open the wiki</span><ArrowUpRight aria-hidden="true" /></RouterLink>
           </article>
-          <article class="pathway">
+          <article v-reveal class="pathway" style="--i: 1">
             <div class="pathway-index"><span>02 / Witness</span><Swords aria-hidden="true" /></div>
             <h3>Read the rivalries.</h3>
             <p>Ambushes, victories, and names worth remembering. The latest from the battlefield.</p>
             <RouterLink to="/pvp" class="pathway-link"><span>View PvP logs</span><ArrowUpRight aria-hidden="true" /></RouterLink>
           </article>
-          <article class="pathway">
+          <article v-reveal class="pathway" style="--i: 2">
             <div class="pathway-index"><span>03 / Belong</span><Flag aria-hidden="true" /></div>
             <h3>Find your people.</h3>
             <p>Trade knowledge. Talk strategy. Meet the community behind the characters.</p>
@@ -301,12 +417,12 @@ onBeforeUnmount(() => {
 
     <section class="final-call" aria-labelledby="final-call-heading">
       <div class="final-call-inner">
-        <DisplayHeading id="final-call-heading" :level="2" size="none">What will your<br /><em>next command be?</em></DisplayHeading>
-        <div class="final-action">
+        <DisplayHeading id="final-call-heading" v-reveal :level="2" size="none">What will your<br /><em>next command <span class="command-end">be?<span class="command-caret" aria-hidden="true" /></span></em></DisplayHeading>
+        <div v-reveal class="final-action" style="--i: 1">
           <BrandActionLink to="/play">Enter Duris</BrandActionLink>
           <p>Free to play. No download required.</p>
         </div>
-        <div class="colophon"><span>Duris</span><p>A world made by its players.</p></div>
+        <div v-reveal class="colophon" style="--i: 2"><span>Duris</span><p>A world made by its players.</p></div>
       </div>
     </section>
   </div>
@@ -321,6 +437,8 @@ onBeforeUnmount(() => {
   --rule: #575743;
   --display: "Cormorant Garamond", Georgia, serif;
   --gutter: clamp(1.5rem, 5.2vw, 6rem);
+  --ease-arrive: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-settle: cubic-bezier(0.22, 0.61, 0.36, 1);
   background: var(--ink);
   color: var(--bone);
   overflow: clip;
@@ -340,15 +458,194 @@ onBeforeUnmount(() => {
   isolation: isolate;
   overflow: clip;
 }
+/* The stage clips the artwork and its atmosphere. `--focus-*` is the artwork's object-position. */
+.hero-stage {
+  --focus-x: 0.5;
+  --focus-y: 0;
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 3.5rem;
+  overflow: clip;
+  container-type: size;
+  pointer-events: none;
+}
+/* A cover-fitted box with the artwork's own proportions, so overlays share its coordinates. */
+.hero-scene {
+  --scene-w: max(100cqw, 100cqh * 1672 / 941);
+  position: absolute;
+  left: calc((100cqw - var(--scene-w)) * var(--focus-x));
+  top: calc((100cqh - var(--scene-w) * 941 / 1672) * var(--focus-y));
+  width: var(--scene-w);
+  aspect-ratio: 1672 / 941;
+  transform-origin: 70.12% 24.36%;
+  translate: calc(var(--px, 0) * -8px) calc(var(--py, 0) * -4px);
+  transition: translate 1.4s var(--ease-settle);
+  animation:
+    world-drift 34s ease-in-out infinite alternate,
+    scene-arrive 3.2s var(--ease-arrive) backwards;
+}
+.hero-scene--custom {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  transform-origin: 60% 35%;
+}
 .hero-art {
   position: absolute;
-  z-index: -2;
-  inset: 0 0 3.5rem;
+  inset: 0;
   width: 100%;
-  height: calc(100% - 3.5rem);
+  height: 100%;
   object-fit: cover;
   object-position: center top;
-  animation: world-drift 24s ease-in-out infinite alternate;
+}
+/*
+ * The eclipse sits at 70.12% / 24.36% of the artwork and is 19.37% of its width across. The
+ * corona is three discs wide, which puts the rim at a third of its gradient radius. Its colors
+ * are dark on purpose: under color-dodge a color is a gain, so the layers lift light the
+ * painting already has and leave the moon and the silhouettes dark.
+ */
+.corona {
+  position: absolute;
+  left: 70.12%;
+  top: 24.36%;
+  width: 58.11%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  mix-blend-mode: color-dodge;
+  /* The castle stands in front of the eclipse, so its sector takes no glow. */
+  mask-image: conic-gradient(#000 0deg 98deg, transparent 124deg 226deg, #000 250deg);
+}
+.corona-ring {
+  position: absolute;
+  inset: 0;
+  /* Clear of the moon's face, fading out into the sky. */
+  mask-image: radial-gradient(closest-side, transparent 32.2%, #000 34%, #000 60%, transparent);
+}
+.corona-ring > * {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  mix-blend-mode: plus-lighter;
+}
+.corona-breath {
+  background: radial-gradient(
+    closest-side,
+    rgb(72 44 22) 34.5%,
+    rgb(72 44 22 / 0.6) 47%,
+    rgb(72 44 22 / 0.2) 72%,
+    transparent
+  );
+  opacity: 0.6;
+  animation: corona-breath 9s ease-in-out infinite;
+}
+.corona-plasma {
+  background: conic-gradient(
+    transparent 0deg,
+    rgb(84 46 20 / 0.9) 24deg,
+    transparent 53deg 84deg,
+    rgb(84 46 20 / 0.7) 121deg,
+    transparent 152deg,
+    rgb(84 46 20 / 0.85) 199deg,
+    transparent 238deg 266deg,
+    rgb(84 46 20 / 0.75) 303deg,
+    transparent 340deg
+  );
+  animation: corona-turn 120s linear infinite;
+}
+.corona-plasma--counter {
+  background: conic-gradient(
+    from 40deg,
+    rgb(84 46 20 / 0.75) 0deg,
+    transparent 37deg 71deg,
+    rgb(84 46 20 / 0.9) 104deg,
+    transparent 139deg,
+    rgb(84 46 20 / 0.65) 187deg,
+    transparent 221deg 259deg,
+    rgb(84 46 20 / 0.85) 291deg,
+    transparent 327deg,
+    rgb(84 46 20 / 0.75) 360deg
+  );
+  animation-duration: 190s;
+  animation-direction: reverse;
+}
+/* A bead of light that circles the rim and is lost behind the castle. */
+.corona-bead {
+  background: radial-gradient(ellipse 6% 2.2% at 50% 33.33%, rgb(146 98 58), transparent);
+  animation: corona-turn 48s linear infinite;
+}
+.corona-ignite {
+  background: radial-gradient(
+    closest-side,
+    rgb(120 70 34) 34%,
+    rgb(120 70 34 / 0.5) 52%,
+    transparent 90%
+  );
+  opacity: 0;
+  animation: corona-ignite 3s var(--ease-settle) 120ms backwards;
+}
+/* Two banks of the same tileable texture; the nearer one is larger, lower and faster. */
+.mist {
+  --tile: 145cqh;
+  position: absolute;
+  left: -3rem;
+  bottom: 0;
+  width: calc(100% + 6rem + var(--tile));
+  height: 50cqh;
+  background: url('@/assets/eclipse/mist.webp') left bottom / var(--tile) 100% repeat-x;
+  mix-blend-mode: screen;
+  opacity: 0.36;
+  translate: calc(var(--px, 0) * -14px) calc(var(--py, 0) * -6px);
+  transition: translate 1.4s var(--ease-settle);
+  animation: mist-drift 110s linear infinite;
+}
+.mist--near {
+  --tile: 198cqh;
+  bottom: -12cqh;
+  height: 62cqh;
+  background-position: 61cqh bottom;
+  opacity: 0.44;
+  translate: calc(var(--px, 0) * -22px) calc(var(--py, 0) * -9px);
+  animation-duration: 72s;
+}
+/* Holds the copy's side of the stage dark while the mist passes behind it. */
+.hero-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgb(17 19 16 / 0.72), rgb(17 19 16 / 0.36) 30%, transparent 52%);
+}
+.ember-field {
+  position: absolute;
+  inset: 0;
+  translate: calc(var(--px, 0) * -28px) calc(var(--py, 0) * -12px);
+  transition: translate 1.4s var(--ease-settle);
+}
+.ember {
+  position: absolute;
+  left: var(--x);
+  bottom: -0.75rem;
+  width: var(--s);
+  height: var(--s);
+  border-radius: 50%;
+  background: #ffc591;
+  box-shadow: 0 0 calc(var(--s) * 3) var(--s) rgb(255 106 40 / 0.7);
+  opacity: 0;
+  animation:
+    ember-rise var(--t) linear var(--d) infinite,
+    ember-sway calc(var(--t) / 3.4) ease-in-out var(--d) infinite alternate,
+    ember-flicker 2.6s ease-in-out var(--d) infinite;
+}
+.ember--near {
+  background: #ff9a55;
+  box-shadow: none;
+  filter: blur(3px);
+}
+.hero-veil {
+  position: absolute;
+  inset: 0;
+  background: var(--ink);
+  opacity: 0;
+  animation: veil-lift 2.6s ease-out backwards;
 }
 .hero-inner {
   max-width: 105rem;
@@ -360,7 +657,13 @@ onBeforeUnmount(() => {
 }
 .hero-copy {
   width: 43%;
-  animation: arrival 800ms ease-out both;
+}
+/* Arrivals hold their first frame through the delay and leave nothing behind once they land. */
+.arrive {
+  animation: arrival 1.1s var(--ease-arrive) calc(160ms + var(--i, 0) * 95ms) backwards;
+}
+.title-line {
+  display: block;
 }
 .hero-title {
   font-family: var(--display);
@@ -371,8 +674,25 @@ onBeforeUnmount(() => {
   margin: 0;
 }
 .hero-title em {
+  position: relative;
+  display: inline-block;
   color: var(--red);
   font-weight: 400;
+}
+/*
+ * A brighter, glowing copy of the accent word, faded over it in time with the corona. Opacity
+ * stays on the compositor, which an animated glow on the word itself would not. The empty
+ * alternative text keeps the copy out of the accessibility tree; without that syntax there is
+ * simply no copy.
+ */
+.hero-title em::after {
+  content: attr(data-text) / '';
+  position: absolute;
+  inset: 0;
+  color: #ff7a52;
+  text-shadow: 0 0 0.2em rgb(255 92 40 / 0.55);
+  opacity: 0;
+  animation: blood-pulse 9s ease-in-out infinite;
 }
 .hero-title--custom {
   font-size: clamp(3.6rem, 6.8vw, 7rem);
@@ -428,6 +748,7 @@ onBeforeUnmount(() => {
 .explore-link svg {
   width: 1.2rem;
   stroke-width: 1;
+  animation: beckon 2.8s ease-in-out infinite;
 }
 .motion-control {
   display: flex;
@@ -453,21 +774,6 @@ button:hover {
 .duris-home :is(a, button):focus-visible {
   outline: 2px solid var(--red);
   outline-offset: 5px;
-}
-.ash-field {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  overflow: hidden;
-  pointer-events: none;
-}
-.ash {
-  position: absolute;
-  bottom: 3.5rem;
-  border-radius: 50%;
-  background: #f79250;
-  opacity: 0;
-  animation: ash-rise linear infinite;
 }
 .world-section {
   color: #171a15;
@@ -510,22 +816,37 @@ button:hover {
 .pathways {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  border-top: 1px solid #838476;
 }
 .pathway {
+  position: relative;
   padding: 2.5rem 2.25rem 1.5rem;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+}
+/* Rules are drawn rather than bordered so they can be ruled in as the pathway arrives. */
+.pathway::before,
+.pathway + .pathway::after {
+  content: '';
+  position: absolute;
+  background: #838476;
+}
+.pathway::before {
+  inset: 0 0 auto;
+  height: 1px;
+  transform-origin: left;
+}
+.pathway + .pathway::after {
+  inset: 0 auto 0 0;
+  width: 1px;
+  background: #999a8d;
+  transform-origin: top;
 }
 .pathway:first-child {
   padding-left: 0;
 }
 .pathway:last-child {
   padding-right: 0;
-}
-.pathway + .pathway {
-  border-left: 1px solid #999a8d;
 }
 .pathway-index {
   display: flex;
@@ -628,42 +949,260 @@ button:hover {
   border-block: 1px solid var(--rule);
   overflow-wrap: anywhere;
 }
+.command-end {
+  white-space: nowrap;
+}
+.command-caret {
+  display: inline-block;
+  width: 0.2em;
+  height: 0.66em;
+  margin-left: 0.14em;
+  background: var(--red);
+  animation: caret-blink 0.95s ease-in-out infinite alternate;
+}
+
+/*
+ * Sections settle in once, when the reveal directive first sees them. Every rule is scoped to a
+ * page that is in motion, so pausing or preferring reduced motion shows the final state at once.
+ */
+.duris-home:not(.motion-paused) [data-reveal] {
+  --reveal-delay: calc(var(--i, 0) * 120ms);
+}
+.duris-home:not(.motion-paused) [data-reveal]:not(.pathway) {
+  transition:
+    opacity 1s var(--ease-arrive) var(--reveal-delay),
+    translate 1s var(--ease-arrive) var(--reveal-delay);
+}
+.duris-home:not(.motion-paused) [data-reveal='pending']:not(.pathway) {
+  opacity: 0;
+  translate: 0 1.75rem;
+}
+.duris-home:not(.motion-paused) .pathway > * {
+  transition:
+    opacity 0.9s var(--ease-arrive) calc(var(--reveal-delay) + var(--step, 0) * 80ms + 120ms),
+    translate 0.9s var(--ease-arrive) calc(var(--reveal-delay) + var(--step, 0) * 80ms + 120ms);
+}
+.pathway > :nth-child(2) {
+  --step: 1;
+}
+.pathway > :nth-child(3) {
+  --step: 2;
+}
+.pathway > :nth-child(4) {
+  --step: 3;
+}
+.duris-home:not(.motion-paused) .pathway[data-reveal='pending'] > * {
+  opacity: 0;
+  translate: 0 1.25rem;
+}
+.duris-home:not(.motion-paused) .pathway::before {
+  transition: scale 1.2s var(--ease-arrive) var(--reveal-delay);
+}
+.duris-home:not(.motion-paused) .pathway + .pathway::after {
+  transition: scale 1.2s var(--ease-arrive) calc(var(--reveal-delay) + 180ms);
+}
+.duris-home:not(.motion-paused) .pathway[data-reveal='pending']::before {
+  scale: 0 1;
+}
+.duris-home:not(.motion-paused) .pathway[data-reveal='pending']::after {
+  scale: 1 0;
+}
+/* The icons are inked in; every Lucide stroke used here is shorter than the dash. */
+.duris-home:not(.motion-paused) .pathway-index :deep(svg *) {
+  stroke-dasharray: 120;
+  transition: stroke-dashoffset 1.7s ease calc(var(--reveal-delay) + 320ms);
+}
+.duris-home:not(.motion-paused) .pathway[data-reveal='pending'] .pathway-index :deep(svg *) {
+  stroke-dashoffset: 120;
+}
+
 @keyframes world-drift {
   from {
-    transform: scale(1);
+    transform: scale(1.04);
   }
   to {
-    transform: scale(1.035);
+    transform: scale(1.1);
+  }
+}
+@keyframes scene-arrive {
+  from {
+    scale: 1.07;
+  }
+  to {
+    scale: 1;
+  }
+}
+@keyframes veil-lift {
+  from {
+    opacity: 0.6;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes corona-breath {
+  0%,
+  100% {
+    opacity: 0.22;
+  }
+  42% {
+    opacity: 1;
+  }
+  58% {
+    opacity: 0.7;
+  }
+  70% {
+    opacity: 0.86;
+  }
+}
+@keyframes corona-turn {
+  to {
+    rotate: 1turn;
+  }
+}
+@keyframes corona-ignite {
+  0% {
+    opacity: 0;
+    scale: 0.96;
+  }
+  26% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    scale: 1.14;
+  }
+}
+/* Keeps time with corona-breath, so the word answers the eclipse. */
+@keyframes blood-pulse {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  42% {
+    opacity: 1;
+  }
+  58% {
+    opacity: 0.55;
+  }
+  70% {
+    opacity: 0.8;
+  }
+}
+@keyframes mist-drift {
+  to {
+    transform: translateX(calc(-1 * var(--tile)));
+  }
+}
+@keyframes ember-rise {
+  0% {
+    opacity: 0;
+    translate: 0 0;
+  }
+  9% {
+    opacity: var(--o);
+  }
+  72% {
+    opacity: calc(var(--o) * 0.6);
+  }
+  100% {
+    opacity: 0;
+    translate: var(--wind) calc(-1 * var(--rise));
+  }
+}
+@keyframes ember-sway {
+  from {
+    transform: translateX(-0.85rem);
+  }
+  to {
+    transform: translateX(0.85rem);
+  }
+}
+@keyframes ember-flicker {
+  0%,
+  100% {
+    scale: 1;
+  }
+  38% {
+    scale: 0.55;
+  }
+  61% {
+    scale: 1.15;
   }
 }
 @keyframes arrival {
   from {
     opacity: 0;
-    transform: translateY(0.75rem);
+    transform: translateY(1.5rem);
   }
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
-@keyframes ash-rise {
-  0% {
-    opacity: 0;
-    transform: translate(0, 0);
-  }
-  15% {
-    opacity: 0.6;
-  }
-  85% {
-    opacity: 0.2;
-  }
+@keyframes beckon {
+  0%,
   100% {
-    opacity: 0;
-    transform: translate(3rem, -35rem);
+    transform: translateY(-0.12rem);
+  }
+  50% {
+    transform: translateY(0.22rem);
   }
 }
-.motion-paused :is(.hero-art, .hero-copy, .ash) {
+@keyframes caret-blink {
+  0%,
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.06;
+  }
+}
+@keyframes hero-recede {
+  to {
+    translate: 0 7rem;
+  }
+}
+/* The artwork falls behind the page as the hero scrolls away. */
+@supports (animation-timeline: view()) {
+  .hero-stage {
+    animation: hero-recede linear both;
+    animation-timeline: view();
+    animation-range: exit;
+  }
+}
+/* Without container units the overlays cannot be registered to the artwork. */
+@supports not (width: 1cqw) {
+  .hero-scene {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+  }
+  .corona,
+  .mist,
+  .ember-field {
+    display: none;
+  }
+}
+
+/* Pause control, and rest while the hero is out of view. Arrivals always finish. */
+.motion-paused :is(.corona-breath, .corona-plasma, .corona-bead, .mist, .ember, .explore-link svg),
+.hero--offstage :is(.corona-breath, .corona-plasma, .corona-bead, .mist, .ember, .explore-link svg),
+.motion-paused .hero-title em::after,
+.hero--offstage .hero-title em::after {
   animation-play-state: paused;
+}
+.motion-paused .hero-scene,
+.hero--offstage .hero-scene {
+  animation-play-state: paused, running;
+}
+.motion-paused .hero-stage,
+.motion-paused .command-caret {
+  animation: none;
+}
+.motion-paused :is(.hero-scene, .mist, .ember-field) {
+  translate: none;
 }
 @media (max-width: 1199px) and (min-width: 761px) {
   .hero-inner {
@@ -701,11 +1240,23 @@ button:hover {
   }
 }
 @media (max-width: 760px) {
-  .hero-art {
+  .hero-stage {
+    --focus-x: 0.72;
+    --focus-y: 0.5;
     inset: 0 0 auto;
     height: 29rem;
+  }
+  .hero-art {
     object-position: 72% center;
-    mask-image: linear-gradient(#000 72%, transparent);
+  }
+  /* The copy sits below the artwork here, so the shade dissolves its lower edge instead. */
+  .hero-shade {
+    background: linear-gradient(transparent 72%, var(--ink));
+  }
+  /* A lighter scene for small, dense screens. */
+  .corona-plasma--counter,
+  .ember:nth-child(even) {
+    display: none;
   }
   .hero-inner {
     min-height: auto;
@@ -780,9 +1331,11 @@ button:hover {
   .pathway {
     padding: 2rem 0;
   }
-  .pathway + .pathway {
-    border-left: 0;
-    border-top: 1px solid #999a8d;
+  .pathway + .pathway::before {
+    background: #999a8d;
+  }
+  .pathway + .pathway::after {
+    display: none;
   }
   .pathway-index svg {
     width: 2.5rem;
@@ -821,10 +1374,26 @@ button:hover {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .hero-art,
-  .hero-copy,
-  .ash {
+  .hero-stage,
+  .hero-scene,
+  .corona-ring > *,
+  .mist,
+  .ember,
+  .hero-veil,
+  .arrive,
+  .hero-title em::after,
+  .explore-link svg,
+  .command-caret {
     animation: none;
+  }
+  .corona-bead {
+    display: none;
+  }
+  .hero-scene,
+  .mist,
+  .ember-field {
+    translate: none;
+    transition: none;
   }
   .duris-home :is(a, button, svg) {
     transition: none;
