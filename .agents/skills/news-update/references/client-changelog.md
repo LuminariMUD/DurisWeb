@@ -16,7 +16,8 @@ git diff -- frontend/src/content/clientChangelog.json
 The script discovers the upstream default branch, pins its full SHA, reads that
 exact changelog, and paginates all GitHub releases. It replaces the snapshot only
 after fetching and parsing the complete history. It preserves source order,
-paragraphs, bullets, inline code, emphasis, links and recorded dates, including
+paragraphs, bullets (including nested lists indented by two spaces), inline code,
+emphasis, links and recorded dates, including
 the original undated 1.0 notes. Only public stable releases get release links;
 other historical entries link to the pinned source. Source text is escaped and
 the frontend also applies the existing changelog sanitizer.
