@@ -27,6 +27,19 @@ individual oversized legacy descriptions, and the total embed are bounded. If
 even one legacy participant's text or POV link cannot fit, the announcement explicitly directs readers to the
 linked battle for the full roster; stored battle data is never truncated.
 
+## Faction round results
+
+The same worker posts "Faction round complete! Good cap: N. Evil cap: N." to the
+PvP channel when the game settles a round. Settling raises the higher of
+`level_cap.level_good`/`level_evil` by exactly one, so that cap identifies the
+round; the website only reads the MUD row. The last announced cap is stored in
+the `discord_faction_round_level` web setting. The first check after this release,
+rounds settled while automatic posting is paused, and a season reset only record
+the current cap, so a stale result is never posted later. Results are not
+delayed by the PvP privacy delay because the game already announces them to every
+player. A failed post uses the battle destination's backoff/block policy and is
+retried with the nonce `faction-round-<cap>`.
+
 ## Durable scheduling and lifecycle
 
 Apply migrations `20261016150000_pvp_discord_delivery.ts` and

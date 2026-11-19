@@ -2,12 +2,44 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { PoolConnection, RowDataPacket } from 'mysql2/promise';
 import { pool } from '../db/connection.js';
 import { getBackendConfiguration } from '../config/environment.js';
-import { postBattleToDiscord, type DiscordDeliveryResult } from './discordService.js';
+import {
+  postBattleToDiscord,
+  postFactionRoundToDiscord,
+  type DiscordDeliveryResult,
+} from './discordService.js';
 import { pvpTimestamp, pvpVisibilitySql } from './pvpVisibility.js';
 import logger from '../utils/logger.js';
 
 export const DISCORD_DELIVERY_BATCH_SIZE = 100;
 const MAX_BACKOFF_SECONDS = 3600;
+const FACTION_ROUND_SETTING = 'discord_faction_round_level';
+
+function retrySeconds(retryAfterMs: number, attempts: number): number {
+  return Math.max(
+    Math.ceil(retryAfterMs / 1000),
+    Math.min(MAX_BACKOFF_SECONDS, 30 * 2 ** Math.min(attempts, 7)),
+  );
+}
+
+/** A failing channel should not receive one request per queued post. */
+async function holdDestination(
+  connection: PoolConnection,
+  channelId: string,
+  result: DiscordDeliveryResult,
+  attempts: number,
+) {
+  if (result.status === 'failed' && result.code !== 'invalid_payload') {
+    await connection.query(
+      'UPDATE web_pvp_discord_destinations SET blocked_reason = ? WHERE channel_id = ?',
+      [result.code, channelId],
+    );
+  } else if (result.status === 'retry') {
+    await connection.query(
+      'UPDATE web_pvp_discord_destinations SET available_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND) WHERE channel_id = ?',
+      [retrySeconds(result.retryAfterMs, attempts), channelId],
+    );
+  }
+}
 
 /** Database-scoped lock also serializes manual posts, settings changes and recovery. */
 async function withDeliveryLock<T>(
@@ -164,10 +196,7 @@ async function attemptBattle(
     } else if (result.status !== 'delivered' && !alreadyDelivered) {
       const seconds =
         result.status === 'retry'
-          ? Math.max(
-              Math.ceil(result.retryAfterMs / 1000),
-              Math.min(MAX_BACKOFF_SECONDS, 30 * 2 ** Math.min(Number(delivery.attempts), 7)),
-            )
+          ? retrySeconds(result.retryAfterMs, Number(delivery.attempts))
           : 0;
       await connection.query(
         `UPDATE web_pvp_discord_deliveries SET status = ?, error_code = ?,
@@ -183,28 +212,61 @@ async function attemptBattle(
         ],
       );
     }
-    if (result.status === 'failed' && result.code !== 'invalid_payload') {
-      await connection.query(
-        'UPDATE web_pvp_discord_destinations SET blocked_reason = ? WHERE channel_id = ?',
-        [result.code, channelId],
-      );
-    } else if (result.status === 'retry') {
-      // A failing channel should not receive one request per queued event in this batch.
-      const seconds = Math.max(
-        Math.ceil(result.retryAfterMs / 1000),
-        Math.min(MAX_BACKOFF_SECONDS, 30 * 2 ** Math.min(Number(delivery.attempts), 7)),
-      );
-      await connection.query(
-        'UPDATE web_pvp_discord_destinations SET available_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND) WHERE channel_id = ?',
-        [seconds, channelId],
-      );
-    }
+    await holdDestination(connection, channelId, result, Number(delivery.attempts));
     await connection.commit();
   } catch (error) {
     await connection.rollback();
     throw error;
   }
   return result;
+}
+
+/**
+ * Announce each completed faction round once, as the game does. Settling a round
+ * raises the higher side cap by exactly one, so that cap identifies the round.
+ * The first check, a paused feed, and a season reset only record the current cap.
+ * Returns false when a failed post has held the destination.
+ */
+async function announceFactionRound(
+  connection: PoolConnection,
+  channelId: string,
+  post: boolean,
+): Promise<boolean> {
+  const [caps] = await connection.query<RowDataPacket[]>(
+    'SELECT level_good, level_evil FROM level_cap WHERE id = 1',
+  );
+  if (!caps.length) return true;
+  const good = Number(caps[0].level_good);
+  const evil = Number(caps[0].level_evil);
+  const level = Math.max(good, evil);
+  const [saved] = await connection.query<RowDataPacket[]>(
+    'SELECT setting_value FROM web_settings WHERE setting_key = ?',
+    [FACTION_ROUND_SETTING],
+  );
+  const announced = saved.length ? Number(saved[0].setting_value) : level;
+  if (post && level > announced) {
+    const result = await postFactionRoundToDiscord(good, evil, {
+      channelId,
+      nonce: `faction-round-${level}`,
+    });
+    // An invalid payload would fail forever, so it is skipped like a failed battle.
+    if (
+      result.status === 'retry' ||
+      (result.status === 'failed' && result.code !== 'invalid_payload')
+    ) {
+      await holdDestination(connection, channelId, result, 0);
+      return false;
+    }
+  }
+  if (!saved.length || level !== announced) {
+    await connection.query(
+      `INSERT INTO web_settings (setting_key, setting_value, description, updated_at)
+       VALUES (?, ?, 'Last faction round cap posted to Discord', NOW())
+       ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()`,
+      [FACTION_ROUND_SETTING, String(level)],
+    );
+  }
+  return true;
 }
 
 /** One bounded pass; independent of browser notifications and their in-memory cursor. */
@@ -228,7 +290,13 @@ export async function pollDiscordDeliveries(): Promise<void> {
       [bot.channelId, destination.boundary_event_id, settings.delay, DISCORD_DELIVERY_BATCH_SIZE],
     );
     for (const event of events) await queueBattle(connection, bot.channelId, Number(event.id));
-    if (!settings.enabled || destination.blocked_reason || !destination.ready) return;
+    // Results from a paused feed would be stale by the time it resumes.
+    if (!settings.enabled) {
+      await announceFactionRound(connection, bot.channelId, false);
+      return;
+    }
+    if (destination.blocked_reason || !destination.ready) return;
+    if (!(await announceFactionRound(connection, bot.channelId, true))) return;
     // Holding the installation lock proves no healthy worker owns a previous sending row.
     // Wait out the bounded HTTP attempt before recovering its uncertain outcome.
     await connection.query(

@@ -247,6 +247,20 @@ describe('Discord bot battle delivery', () => {
     expect(manualPayload).not.toHaveProperty('enforce_nonce');
   });
 
+  it('posts the faction round result as the game announces it', async () => {
+    const identity = { channelId: '123456789012345678', nonce: 'faction-round-35' };
+    expect(await service.postFactionRoundToDiscord(34, 35, identity)).toEqual({
+      status: 'delivered',
+      messageId: '987654321012345678',
+    });
+    const payload = JSON.parse(String(jest.mocked(fetch).mock.calls[0][1]?.body));
+    expect(payload).toMatchObject({ nonce: identity.nonce, enforce_nonce: true });
+    expect(payload.embeds[0]).toMatchObject({
+      title: '🏁 Faction round complete!',
+      description: 'Good cap: 34. Evil cap: 35.',
+    });
+  });
+
   it('refuses a queued delivery when the configured destination has changed', async () => {
     expect(
       await service.postBattleToDiscord(4, '2026-10-16', 'Room', [], {

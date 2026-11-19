@@ -316,6 +316,31 @@ export async function postBattleToDiscord(
 }
 
 /**
+ * post a completed faction round, matching the game's own announcement.
+ * One attempt only. The scheduler owns durable retry and recovery decisions.
+ */
+export async function postFactionRoundToDiscord(
+  goodCap: number,
+  evilCap: number,
+  identity: DiscordDeliveryIdentity,
+): Promise<DiscordDeliveryResult> {
+  const embed: DiscordEmbed = {
+    title: '🏁 Faction round complete!',
+    description: `Good cap: ${goodCap}. Evil cap: ${evilCap}.`,
+    color: EMBED_COLOR,
+    timestamp: new Date().toISOString(),
+    fields: [],
+  };
+  const result = await sendDiscordPayload({ embeds: [embed] }, identity);
+  if (result.status === 'delivered') {
+    logger.info(`[Discord] posted faction round ${Math.max(goodCap, evilCap)}`);
+  } else {
+    logger.warn(`[Discord] faction round: ${result.code}`);
+  }
+  return result;
+}
+
+/**
  * test the configured bot by sending a test message
  */
 export async function testDiscordBot(): Promise<{ success: boolean; error?: string }> {
