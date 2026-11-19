@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, jest } from '@je
 import mysql, { type Pool, type PoolConnection, type RowDataPacket } from 'mysql2/promise';
 import knex, { type Knex } from 'knex';
 import { resolve } from 'node:path';
-import type { postBattleToDiscord } from '../discordService.js';
+import type { postBattleToDiscord, postFactionRoundToDiscord } from '../discordService.js';
 
 // Migrations run separately from the src/ application build, as in Knex's runner.
 const migrationPath = resolve('migrations/20261016150000_pvp_discord_delivery.ts');
@@ -25,6 +25,7 @@ const configuration = {
   discordBot: { channelId, token: 'fixture-only' },
 };
 const send = jest.fn<typeof postBattleToDiscord>();
+const sendRound = jest.fn<typeof postFactionRoundToDiscord>();
 const getConnection = jest.fn<() => Promise<PoolConnection>>();
 jest.unstable_mockModule('../../db/connection.js', () => ({
   pool: { getConnection },
@@ -32,7 +33,10 @@ jest.unstable_mockModule('../../db/connection.js', () => ({
 jest.unstable_mockModule('../../config/environment.js', () => ({
   getBackendConfiguration: () => configuration,
 }));
-jest.unstable_mockModule('../discordService.js', () => ({ postBattleToDiscord: send }));
+jest.unstable_mockModule('../discordService.js', () => ({
+  postBattleToDiscord: send,
+  postFactionRoundToDiscord: sendRound,
+}));
 jest.unstable_mockModule('../webSettingsService.js', () => ({ getWebSettings: jest.fn() }));
 jest.unstable_mockModule('../../utils/logger.js', () => ({ default: { error: jest.fn() } }));
 const service = await import('../pvpDiscordDelivery.js');
@@ -57,7 +61,10 @@ isolated('durable Discord delivery on a disposable database', () => {
       'CREATE TABLE pkill_info(event_id INT, player_description TEXT, pk_type VARCHAR(20), leader INT, inroom INT)',
     );
     await database.query(
-      'CREATE TABLE web_settings(setting_key VARCHAR(64) PRIMARY KEY, setting_value TEXT, updated_by VARCHAR(64), updated_at DATETIME)',
+      'CREATE TABLE web_settings(setting_key VARCHAR(64) PRIMARY KEY, setting_value TEXT, description TEXT, updated_by VARCHAR(64), updated_at DATETIME)',
+    );
+    await database.query(
+      'CREATE TABLE level_cap(id INT PRIMARY KEY, level_good INT NOT NULL, level_evil INT NOT NULL)',
     );
     await up(migrationDb);
     await auditMigration.up(migrationDb);
@@ -79,6 +86,7 @@ isolated('durable Discord delivery on a disposable database', () => {
       'pkill_info',
       'pkill_event',
       'web_settings',
+      'level_cap',
     ]) {
       await database.query(`DELETE FROM ${table}`);
     }
@@ -87,6 +95,7 @@ isolated('durable Discord delivery on a disposable database', () => {
     );
     configuration.discordBot.channelId = channelId;
     send.mockReset().mockResolvedValue({ status: 'delivered', messageId: '987654321' });
+    sendRound.mockReset().mockResolvedValue({ status: 'delivered', messageId: '987654322' });
   });
 
   async function event(id: number, stamp = '2020-01-01 00:00:00') {
@@ -324,6 +333,65 @@ isolated('durable Discord delivery on a disposable database', () => {
       expect((await rows())[0]).toMatchObject({ status: 'delivered', ambiguous: 1 });
     },
   );
+
+  async function caps(good: number, evil: number) {
+    await database.query(
+      'INSERT INTO level_cap VALUES (1, ?, ?) ON DUPLICATE KEY UPDATE level_good = VALUES(level_good), level_evil = VALUES(level_evil)',
+      [good, evil],
+    );
+  }
+
+  it('announces each faction round once, starting after the current round', async () => {
+    await caps(33, 34);
+    await service.setDiscordAutoPosting(true, 'fixture');
+    await service.pollDiscordDeliveries();
+    expect(sendRound).not.toHaveBeenCalled();
+    await caps(35, 35);
+    await service.pollDiscordDeliveries();
+    await service.pollDiscordDeliveries();
+    expect(sendRound.mock.calls).toEqual([[35, 35, { channelId, nonce: 'faction-round-35' }]]);
+  });
+
+  it('does not announce rounds settled while paused or a season reset', async () => {
+    await caps(34, 34);
+    await service.setDiscordAutoPosting(true, 'fixture');
+    await service.pollDiscordDeliveries();
+    await service.setDiscordAutoPosting(false, 'fixture');
+    await caps(34, 35);
+    await service.pollDiscordDeliveries();
+    await service.setDiscordAutoPosting(true, 'fixture');
+    await service.pollDiscordDeliveries();
+    await caps(31, 31);
+    await service.pollDiscordDeliveries();
+    expect(sendRound).not.toHaveBeenCalled();
+    await caps(32, 31);
+    await service.pollDiscordDeliveries();
+    expect(sendRound.mock.calls).toEqual([[32, 31, { channelId, nonce: 'faction-round-32' }]]);
+  });
+
+  it('holds the destination after a failed round post and retries it with the same nonce', async () => {
+    await caps(34, 34);
+    await service.setDiscordAutoPosting(true, 'fixture');
+    await service.pollDiscordDeliveries();
+    await caps(35, 34);
+    await event(1);
+    sendRound.mockResolvedValueOnce({
+      status: 'retry',
+      code: 'network_error',
+      retryAfterMs: 30_000,
+      ambiguous: true,
+    });
+    await service.pollDiscordDeliveries();
+    expect(send).not.toHaveBeenCalled();
+    await service.pollDiscordDeliveries();
+    expect(sendRound).toHaveBeenCalledTimes(1);
+    await makeReady();
+    await service.pollDiscordDeliveries();
+    expect(sendRound.mock.calls[1]).toEqual(sendRound.mock.calls[0]);
+    expect(send.mock.calls.map(([id]) => id)).toEqual([1]);
+    await service.pollDiscordDeliveries();
+    expect(sendRound).toHaveBeenCalledTimes(2);
+  });
 
   it('keeps an invalid event visible as failed while delivering other events', async () => {
     await service.setDiscordAutoPosting(true, 'fixture');
