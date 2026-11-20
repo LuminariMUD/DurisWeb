@@ -106,6 +106,7 @@ const classList = [
 const raceList = [
   'Barbarian',
   'Centaur',
+  'Death Knight',
   'Drow Elf',
   'Duergar',
   'Dwarf',
@@ -115,17 +116,29 @@ const raceList = [
   'Gnome',
   'Goblin',
   'Grey Elf',
+  'Half-Elf',
   'Halfling',
+  'Harpy',
   'Human',
   'Illithid',
   'Kobold',
+  'Kuo Toa',
   'Minotaur',
   'Ogre',
   'Orc',
+  'Orog',
+  'Phantom',
+  'Planetbound Illithid',
   'Revenant',
+  'Shade',
+  'Shadow Beast',
+  'Storm Giant',
   'Thri-Kreen',
   'Tiefling',
   'Troll',
+  'Vampire',
+  'Wight',
+  'Wood Elf',
 ]
 
 // Autocomplete state
@@ -593,6 +606,9 @@ const getAlignmentIndicator = (event: PvPEvent) => {
     'Centaur',
     'Firbolg',
     'Githzerai',
+    'Half-Elf',
+    'Wood Elf',
+    'Storm Giant',
   ]
   const evilRaces = [
     'Drow Elf',
@@ -604,6 +620,8 @@ const getAlignmentIndicator = (event: PvPEvent) => {
     'Githyanki',
     'Illithid',
     'Kobold',
+    'Kuo Toa',
+    'Orog',
     'Tiefling',
   ]
 
@@ -612,8 +630,11 @@ const getAlignmentIndicator = (event: PvPEvent) => {
 
   for (const killer of event.killers || []) {
     const desc = killer.description || ''
-    if (goodRaces.some((r) => desc.includes(r))) goodCount++
-    if (evilRaces.some((r) => desc.includes(r))) evilCount++
+    if (desc.includes('Planetbound Illithid')) goodCount++
+    else {
+      if (goodRaces.some((r) => desc.includes(r))) goodCount++
+      if (evilRaces.some((r) => desc.includes(r))) evilCount++
+    }
   }
 
   if (goodCount > evilCount) return 'good'

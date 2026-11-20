@@ -405,3 +405,10 @@ bounded waiter for the durable outbox publication acknowledgement: Redis receipt
 can precede the separate SQL update. This changes only qualification code; existing
 HTTP/Redis/MUD integration evidence remains valid. No new player-facing release
 news is needed for this probe repair, and no deployment is performed.
+
+### Race groups in character creation
+
+The Play wizard groups the MUD's enabled races using the `creation_side`
+field in `chargen_options`. `neutral` is a fixed side, and `either` means
+Good or Evil is chosen by alignment. Older servers only send `faction`.
+Their `neutral` value goes to the Either Side tab.
