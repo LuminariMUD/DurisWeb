@@ -817,7 +817,8 @@ export interface MudRace {
   id: number
   name: string
   ansi: string
-  faction: 'good' | 'evil' | 'neutral'
+  faction: 'good' | 'evil' | 'neutral' | 'undead'
+  creation_side?: 'good' | 'evil' | 'neutral' | 'undead' | 'either'
   classes: MudChargenClass[]
 }
 

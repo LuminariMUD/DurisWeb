@@ -196,9 +196,25 @@ function handleAddBonus(stat: string) {
 }
 
 // Computed
-const goodRaces = computed(() => props.races.filter((r) => r.faction === 'good'))
-const evilRaces = computed(() => props.races.filter((r) => r.faction === 'evil'))
-const neutralRaces = computed(() => props.races.filter((r) => r.faction === 'neutral'))
+const raceTabs = [
+  { side: 'good', label: 'Good', ring: 'ring-green-500' },
+  { side: 'evil', label: 'Evil', ring: 'ring-red-500' },
+  { side: 'either', label: 'Either Side', ring: 'ring-yellow-500' },
+  { side: 'neutral', label: 'Neutral', ring: 'ring-sky-500' },
+  { side: 'undead', label: 'Undead', ring: 'ring-purple-500' },
+] as const
+const raceGroups = computed(() =>
+  raceTabs
+    .map((tab) => ({
+      ...tab,
+      races: props.races.filter(
+        (race) =>
+          (race.creation_side ?? (race.faction === 'neutral' ? 'either' : race.faction)) ===
+          tab.side,
+      ),
+    }))
+    .filter((group) => group.races.length > 0),
+)
 
 const availableClasses = computed(() => {
   if (!selectedRace.value) return []
@@ -654,21 +670,21 @@ function formatAlignment(alignment: string): string {
       <div v-else-if="currentStep === 'race'" class="space-y-4">
         <h3 class="text-lg font-semibold">Choose Your Race</h3>
 
-        <Tabs default-value="good" class="w-full">
-          <TabsList class="grid w-full grid-cols-3">
-            <TabsTrigger value="good">Good ({{ goodRaces.length }})</TabsTrigger>
-            <TabsTrigger value="evil">Evil ({{ evilRaces.length }})</TabsTrigger>
-            <TabsTrigger value="neutral">Neutral ({{ neutralRaces.length }})</TabsTrigger>
+        <Tabs :default-value="raceGroups[0]?.side" class="w-full">
+          <TabsList class="flex h-auto w-full flex-wrap">
+            <TabsTrigger v-for="group in raceGroups" :key="group.side" :value="group.side">
+              {{ group.label }} ({{ group.races.length }})
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="good" class="mt-4">
-            <div class="grid grid-cols-3 gap-2">
-              <div v-for="race in goodRaces" :key="race.id" class="flex items-center gap-1">
+          <TabsContent v-for="group in raceGroups" :key="group.side" :value="group.side" class="mt-4">
+            <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <div v-for="race in group.races" :key="race.id" class="flex min-w-0 items-center gap-1">
                 <Button
                   variant="outline"
                   :class="[
-                    'justify-start h-auto py-2 flex-1',
-                    selectedRace?.id === race.id && 'ring-2 ring-green-500 ring-offset-2 ring-offset-background'
+                    'h-auto min-w-0 flex-1 justify-start whitespace-normal py-2 text-left',
+                    selectedRace?.id === race.id && ['ring-2 ring-offset-2 ring-offset-background', group.ring]
                   ]"
                   @click="selectRace(race)"
                 >
@@ -677,44 +693,8 @@ function formatAlignment(alignment: string): string {
                 <HelpModal type="race" :name="race.name" />
               </div>
             </div>
-          </TabsContent>
-
-          <TabsContent value="evil" class="mt-4">
-            <div class="grid grid-cols-3 gap-2">
-              <div v-for="race in evilRaces" :key="race.id" class="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  :class="[
-                    'justify-start h-auto py-2 flex-1',
-                    selectedRace?.id === race.id && 'ring-2 ring-red-500 ring-offset-2 ring-offset-background'
-                  ]"
-                  @click="selectRace(race)"
-                >
-                  <span v-html="parseAnsiToHtml(race.ansi)" />
-                </Button>
-                <HelpModal type="race" :name="race.name" />
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="neutral" class="mt-4">
-            <div class="grid grid-cols-3 gap-2">
-              <div v-for="race in neutralRaces" :key="race.id" class="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  :class="[
-                    'justify-start h-auto py-2 flex-1',
-                    selectedRace?.id === race.id && 'ring-2 ring-yellow-500 ring-offset-2 ring-offset-background'
-                  ]"
-                  @click="selectRace(race)"
-                >
-                  <span v-html="parseAnsiToHtml(race.ansi)" />
-                </Button>
-                <HelpModal type="race" :name="race.name" />
-              </div>
-            </div>
-            <p class="text-sm text-muted-foreground mt-2">
-              Neutral races can choose to be good or evil.
+            <p v-if="group.side === 'either'" class="mt-2 text-sm text-muted-foreground">
+              These races join Good or Evil based on their alignment.
             </p>
           </TabsContent>
         </Tabs>

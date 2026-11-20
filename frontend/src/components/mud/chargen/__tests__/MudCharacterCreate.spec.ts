@@ -91,6 +91,32 @@ async function reachReview(wrapper: VueWrapper) {
   await button(wrapper, 'Next').trigger('click')
 }
 
+it('puts old side choosers, Neutral characters, and Undead testers in separate tabs', async () => {
+  const wrapper = wizard(true, [
+    race,
+    { ...race, id: 14, name: 'Thri-Kreen', ansi: 'Thri-Kreen', faction: 'neutral' },
+    { ...race, id: 18, name: 'Shade', ansi: 'Shade', faction: 'neutral', creation_side: 'neutral' },
+    { ...race, id: 21, name: 'Lich', ansi: 'Lich', faction: 'undead', creation_side: 'undead' },
+  ])
+  await button(wrapper, 'New Player').trigger('click')
+  await button(wrapper, 'Next').trigger('click')
+  expect(wrapper.findAll('[role="tab"]').map((tab) => tab.text().trim())).toEqual([
+    'Good (1)',
+    'Either Side (1)',
+    'Neutral (1)',
+    'Undead (1)',
+  ])
+  await wrapper.findAll('[role="tab"]')[2]!.trigger('mousedown', { button: 0, ctrlKey: false })
+  expect(button(wrapper, 'Shade').exists()).toBe(true)
+  expect(
+    wrapper
+      .findAll('[role="tabpanel"]')
+      .filter((panel) => panel.isVisible())
+      .map((panel) => panel.text())
+      .join(),
+  ).not.toContain('Thri-Kreen')
+})
+
 describe('race/class alignment selection', () => {
   const cells: {
     alignment: MudChargenClass['alignment']
@@ -342,7 +368,7 @@ describe('stat method wizard', () => {
     ])
     await button(wrapper, 'New Player').trigger('click')
     await button(wrapper, 'Next').trigger('click')
-    await wrapper.get('[id$="trigger-neutral"]').trigger('mousedown', { button: 0, ctrlKey: false })
+    await wrapper.get('[id$="trigger-either"]').trigger('mousedown', { button: 0, ctrlKey: false })
     await button(wrapper, 'Thri-kreen').trigger('click')
     await button(wrapper, 'Next').trigger('click')
     await wrapper.get('#male').trigger('click')
